@@ -1,0 +1,40 @@
+# University Certificate Generator - Requirements
+# Python 3.8+ compatible
+
+# Core Flask dependencies
+Flask==2.3.3
+Werkzeug==2.3.7
+Jinja2==3.1.2
+
+# Database
+Flask-SQLAlchemy==3.0.5
+# SQLAlchemy 2.0.21 fails on Python 3.14; use >=2.0.30
+SQLAlchemy>=2.0.21
+
+# Authentication
+Flask-Login==0.6.3
+
+# Password hashing
+# 4.1.x provides Windows wheels for Python 3.12+; avoids local builds
+bcrypt==4.1.2
+
+# QR Code generation
+qrcode==7.4.2
+# Pillow: 10.x fails to build on Python 3.14; use >=11 for newer Python
+Pillow>=10.0.1
+
+# PDF generation
+reportlab==4.0.4
+
+# Environment variables
+python-dotenv==1.0.0
+
+# Date/Time utilities
+python-dateutil==2.8.2
+
+# Development dependencies (optional)
+# Uncomment if needed for development
+# Flask-Migrate==4.0.5
+# Flask-Testing==0.8.1
+# pytest==7.4.2
+# pytest-flask==1.2.0

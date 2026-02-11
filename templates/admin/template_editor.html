@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Template Editor - {{ template.name }}{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='editor/certificate_editor.css') }}">
+{% endblock %}
+{% block content %}
+<div class="cert-editor-header d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0"><i class="bi bi-pencil-square"></i> Template Editor: {{ template.name }}</h2>
+    <div>
+        <a href="{{ url_for('manage_templates') }}" class="btn btn-outline-secondary me-2"><i class="bi bi-arrow-left"></i> Back</a>
+        <button type="button" class="btn btn-primary" id="save-layout-btn"><i class="bi bi-save"></i> Save layout</button>
+    </div>
+</div>
+<div class="cert-editor-wrap">
+    <aside class="cert-editor-sidebar">
+        <p class="text-muted small">Drag text boxes on the certificate to position them. Positions are saved as percent so they scale. QR and Registration number are fixed by super admin here.</p>
+        <div class="mb-3">
+            <label class="form-label">Sample data</label>
+            <select id="sample-data-toggle" class="form-select form-select-sm">
+                <option value="short">Short name</option>
+                <option value="long">Long name</option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Alignment (selected field)</label>
+            <div class="btn-group btn-group-sm">
+                <button type="button" class="btn btn-outline-secondary" data-anchor="left" title="Align left">Left</button>
+                <button type="button" class="btn btn-outline-secondary" data-anchor="center" title="Align center">Center</button>
+                <button type="button" class="btn btn-outline-secondary" data-anchor="right" title="Align right">Right</button>
+            </div>
+        </div>
+        <p class="small text-muted">Arrow keys: nudge selected field. Double-click field to remove from canvas (template editor).</p>
+        <div class="mb-3">
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="export-json-btn">Export JSON</button>
+            <label class="btn btn-outline-secondary btn-sm mb-0 ms-1">
+                Import JSON <input type="file" id="import-json-input" accept=".json" class="d-none">
+            </label>
+        </div>
+    </aside>
+    <main class="cert-editor-main">
+        <div id="cert-editor-stage"></div>
+        <div class="cert-editor-preview-hint small text-muted mt-2">Live preview: what you see here matches the final PDF.</div>
+    </main>
+</div>
+<script>
+window.EDITOR_CONFIG = {
+    mode: 'template',
+    templateId: {{ template.id }},
+    imageUrl: "{{ url_for('serve_template', template_id=template.id) }}",
+    layoutUrl: "{{ url_for('api_template_layout_get', template_id=template.id) }}",
+    layoutSaveUrl: "{{ url_for('api_template_layout_save', template_id=template.id) }}",
+    backUrl: "{{ url_for('manage_templates') }}",
+    sampleDataShort: { recipient_name: "John Smith", specialization: "Computer Science", course_name: "Data Structures", teacher_name: "Dr. Jane Doe", reg_number: "1234567", date: "December 18, 2025" },
+    sampleDataLong: { recipient_name: "Alexandria Montgomery-Williams", specialization: "Advanced Computer Science and Engineering", course_name: "Advanced Data Engineering and Scalable Systems", teacher_name: "Dr. L. K. Perera", reg_number: "REG-2025-000123", date: "December 18, 2025" }
+};
+</script>
+<script src="https://unpkg.com/konva@9/konva.min.js"></script>
+<script src="{{ url_for('static', filename='editor/certificate_editor.js') }}"></script>
+{% endblock %}

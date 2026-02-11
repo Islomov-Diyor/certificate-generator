@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Certificate Generator{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2 class="mb-4">
+            <i class="bi bi-speedometer2"></i> Dashboard
+            <small class="text-muted">Welcome, {{ current_user.email }}</small>
+        </h2>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="card-title">Available Templates</h6>
+                        <h3>{{ templates|length }}</h3>
+                    </div>
+                    <div>
+                        <i class="bi bi-file-earmark-image fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="card-title">Your Certificates</h6>
+                        <h3>{{ recent_certificates|length }}</h3>
+                    </div>
+                    <div>
+                        <i class="bi bi-award fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="card-title">Total Generated</h6>
+                        <h3>{{ recent_certificates|length }}</h3>
+                    </div>
+                    <div>
+                        <i class="bi bi-download fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h6 class="card-title">Role</h6>
+                        <h4 class="text-capitalize">{{ current_user.role.replace('_', ' ') }}</h4>
+                    </div>
+                    <div>
+                        <i class="bi bi-person-badge fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Templates Section -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-collection"></i> Available Templates
+                </h5>
+                {% if current_user.role == 'super_admin' %}
+                <a href="{{ url_for('upload_template') }}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-plus"></i> Upload Template
+                </a>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if templates %}
+                <div class="row">
+                    {% for template in templates %}
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h6 class="card-title">{{ template.name }}</h6>
+                                <p class="card-text">
+                                    <small class="text-muted">
+                                        Category: {{ template.category.replace('_', ' ').title() }}
+                                    </small>
+                                </p>
+                                <div class="d-flex justify-content-between">
+                                    <a href="{{ url_for('generate_certificate_form', template_id=template.id) }}" 
+                                       class="btn btn-success btn-sm">
+                                        <i class="bi bi-plus-circle"></i> Generate
+                                    </a>
+                                    {% if current_user.role == 'super_admin' %}
+                                    <a href="{{ url_for('delete_template', template_id=template.id) }}" 
+                                       class="btn btn-danger btn-sm"
+                                       onclick="return confirm('Are you sure you want to delete this template?')">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="bi bi-file-earmark-image text-muted fs-1"></i>
+                    <p class="text-muted mt-2">No templates available yet.</p>
+                    {% if current_user.role == 'super_admin' %}
+                    <a href="{{ url_for('upload_template') }}" class="btn btn-primary">
+                        Upload First Template
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Certificates -->
+{% if recent_certificates %}
+<div class="row mt-4">
+    <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clock-history"></i> Recent Certificates
+                    </h5>
+                    <div class="col-md-4">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text"><i class="bi bi-search"></i></span>
+                            <input type="search"
+                                   class="form-control"
+                                   placeholder="Search certificates..."
+                                   data-table-search="recent-cert-table">
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="recent-cert-table" data-sortable="true">
+                            <thead>
+                                <tr>
+                                    <th data-sortable-column>Registration #</th>
+                                    <th data-sortable-column>Recipient Name</th>
+                                    <th data-sortable-column>Specialization</th>
+                                    <th data-sortable-column>Generated At</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for cert in recent_certificates %}
+                                <tr>
+                                    <td><code>{{ cert.reg_number }}</code></td>
+                                    <td>{{ cert.recipient_name }}</td>
+                                    <td>{{ cert.specialization }}</td>
+                                    <td>{{ cert.generated_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{{ url_for('preview_certificate', certificate_id=cert.id) }}" 
+                                               class="btn btn-info">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                            <a href="{{ url_for('download_certificate', certificate_id=cert.id) }}" 
+                                               class="btn btn-success">
+                                                <i class="bi bi-download"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

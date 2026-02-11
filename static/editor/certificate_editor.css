@@ -1,0 +1,58 @@
+/* Certificate template / certificate editor layout */
+.cert-editor-wrap {
+  display: flex;
+  gap: 1rem;
+  min-height: 70vh;
+}
+.cert-editor-sidebar {
+  width: 320px;
+  flex-shrink: 0;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+}
+.cert-editor-main {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 1rem;
+  background: #e9ecef;
+  border-radius: 8px;
+}
+#cert-editor-stage {
+  background: #fff;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  border-radius: 4px;
+}
+.cert-editor-preview-hint, .cert-editor-header .text-muted { font-size: 0.875rem; }
+.cert-editor-header h2 { font-size: 1.5rem; }
+
+/* Mobile layout */
+@media (max-width: 768px) {
+  .cert-editor-wrap {
+    flex-direction: column;
+  }
+
+  .cert-editor-sidebar {
+    width: 100%;
+  }
+
+  .cert-editor-main {
+    width: 100%;
+    padding: 0.75rem;
+    margin-top: 0.5rem;
+  }
+
+  #cert-editor-stage {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .cert-editor-header h2 {
+    font-size: 1.25rem;
+  }
+}

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Adjust Certificate Layout - {{ certificate.reg_number }}{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='editor/certificate_editor.css') }}">
+{% endblock %}
+{% block content %}
+<div class="cert-editor-header d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0"><i class="bi bi-pencil-square"></i> Adjust layout: Certificate #{{ certificate.reg_number }}</h2>
+    <div>
+        <a href="{{ url_for('preview_certificate', certificate_id=certificate.id) }}" class="btn btn-outline-secondary me-2"><i class="bi bi-arrow-left"></i> Back to preview</a>
+        <button type="button" class="btn btn-primary" id="save-layout-btn"><i class="bi bi-save"></i> Save layout</button>
+    </div>
+</div>
+<div class="cert-editor-wrap">
+    <aside class="cert-editor-sidebar">
+        <p class="text-muted small">Drag text boxes to adjust positions for this certificate. Saved layout applies only to this certificate.</p>
+        <div class="mb-3">
+            <label class="form-label">Sample data</label>
+            <select id="sample-data-toggle" class="form-select form-select-sm">
+                <option value="real">Real certificate data</option>
+                <option value="short">Short sample</option>
+                <option value="long">Long sample</option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Alignment (selected field)</label>
+            <div class="btn-group btn-group-sm">
+                <button type="button" class="btn btn-outline-secondary" data-anchor="left">Left</button>
+                <button type="button" class="btn btn-outline-secondary" data-anchor="center">Center</button>
+                <button type="button" class="btn btn-outline-secondary" data-anchor="right">Right</button>
+            </div>
+        </div>
+        <p class="small text-muted">Arrow keys: nudge selected field.</p>
+    </aside>
+    <main class="cert-editor-main">
+        <div id="cert-editor-stage"></div>
+        <div class="cert-editor-preview-hint small text-muted mt-2">Live preview matches the final PDF.</div>
+    </main>
+</div>
+<script>
+window.EDITOR_CONFIG = {
+    mode: 'certificate',
+    certificateId: {{ certificate.id }},
+    imageUrl: "{{ url_for('serve_template', template_id=certificate.template_id) }}",
+    layoutUrl: "{{ url_for('api_certificate_layout_get', certificate_id=certificate.id) }}",
+    layoutSaveUrl: "{{ url_for('api_certificate_layout_save', certificate_id=certificate.id) }}",
+    backUrl: "{{ url_for('preview_certificate', certificate_id=certificate.id) }}",
+    certificateData: {
+        recipient_name: {{ certificate.recipient_name | tojson }},
+        specialization: {{ (certificate.specialization or '') | tojson }},
+        course_name: {{ (certificate.course_name or '') | tojson }},
+        teacher_name: {{ (certificate.teacher_name or '') | tojson }},
+        reg_number: {{ certificate.reg_number | tojson }},
+        date: {{ certificate.generated_at.strftime('%B %d, %Y') | tojson }}
+    },
+    sampleDataShort: { recipient_name: "John Smith", specialization: "CS", course_name: "Data Structures", teacher_name: "Dr. Jane Doe", reg_number: "1234567", date: "Dec 18, 2025" },
+    sampleDataLong: { recipient_name: "Alexandria Montgomery-Williams", specialization: "Advanced Computer Science", course_name: "Advanced Data Engineering and Scalable Systems", teacher_name: "Dr. L. K. Perera", reg_number: "REG-2025-000123", date: "December 18, 2025" }
+};
+</script>
+<script src="https://unpkg.com/konva@9/konva.min.js"></script>
+<script src="{{ url_for('static', filename='editor/certificate_editor.js') }}"></script>
+{% endblock %}

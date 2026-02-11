@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+
+{% block title %}Certificate Preview - Certificate Generator{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('dashboard') }}">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('generate_certificate_form', template_id=certificate.template_id) }}">Generate</a></li>
+                <li class="breadcrumb-item active">Preview</li>
+            </ol>
+        </nav>
+        
+        <h2 class="mb-4">
+            <i class="bi bi-eye"></i> Certificate Preview
+            <small class="text-muted">Registration #{{ certificate.reg_number }}</small>
+        </h2>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-image"></i> Live Preview</h5>
+                <a href="{{ url_for('certificate_editor_page', certificate_id=certificate.id) }}" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-pencil-square"></i> Adjust layout
+                </a>
+            </div>
+            <div class="card-body text-center bg-light">
+                <div class="position-relative d-inline-block preview-image-wrapper">
+                    <div id="previewSpinner" class="position-absolute top-50 start-50 translate-middle">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                    <img id="certificatePreviewImage"
+                         src="{{ url_for('certificate_preview_image', certificate_id=certificate.id) }}?v={{ certificate.id }}" 
+                         alt="Certificate preview"
+                         class="img-fluid shadow-sm preview-image"
+                         style="max-height: 70vh; transition: transform 0.2s ease;"
+                         crossorigin="anonymous">
+                </div>
+                <div class="mt-3 d-flex justify-content-center gap-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="previewZoomOutBtn" title="Zoom out">
+                        <i class="bi bi-zoom-out"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="previewZoomInBtn" title="Zoom in">
+                        <i class="bi bi-zoom-in"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="previewFullscreenBtn">
+                        <i class="bi bi-arrows-fullscreen"></i> Fullscreen
+                    </button>
+                </div>
+                <p class="text-muted small mt-2 mb-0">What you see here matches the final PDF.</p>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-file-earmark-pdf"></i> Certificate Details
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Recipient Name:</strong><br>
+                        {{ certificate.recipient_name }}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Registration Number:</strong><br>
+                        <code>{{ certificate.reg_number }}</code>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Specialization:</strong><br>
+                        {{ certificate.specialization }}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Generated Date:</strong><br>
+                        {{ certificate.generated_at.strftime('%Y-%m-%d') }}
+                    </div>
+                </div>
+                
+                {% if certificate.course_name %}
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Course Name:</strong><br>
+                        {{ certificate.course_name }}
+                    </div>
+                    <div class="col-md-6">
+                        {% if certificate.teacher_name %}
+                        <strong>Teacher:</strong><br>
+                        {{ certificate.teacher_name }}
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if certificate.teacher_name and not certificate.course_name %}
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <strong>Teacher:</strong><br>
+                        {{ certificate.teacher_name }}
+                    </div>
+                </div>
+                {% endif %}
+                
+                <div class="alert alert-success">
+                    <h6 class="alert-heading"><i class="bi bi-check-circle"></i> Certificate Generated Successfully!</h6>
+                    <p class="mb-0">Your certificate has been generated with all required elements including QR code and registration number.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-download"></i> Download Options
+                </h5>
+            </div>
+            <div class="card-body text-center">
+                <a href="{{ url_for('download_certificate', certificate_id=certificate.id) }}" 
+                   class="btn btn-success btn-lg">
+                    <i class="bi bi-download"></i> Download PDF
+                </a>
+                <p class="text-muted mt-2 mb-0">
+                    <small>Downloaded {{ certificate.download_count }} time{{ 's' if certificate.download_count != 1 else '' }}</small>
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-info-circle"></i> Certificate Info
+                </h5>
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-6">Template:</dt>
+                    <dd class="col-sm-6">{{ certificate.template.name }}</dd>
+                    
+                    <dt class="col-sm-6">Category:</dt>
+                    <dd class="col-sm-6">
+                        <span class="badge bg-secondary">
+                            {{ certificate.template.category.replace('_', ' ').title() }}
+                        </span>
+                    </dd>
+                    
+                    <dt class="col-sm-6">Generated:</dt>
+                    <dd class="col-sm-6">{{ certificate.generated_at.strftime('%Y-%m-%d %H:%M') }}</dd>
+                    
+                    <dt class="col-sm-6">Admin:</dt>
+                    <dd class="col-sm-6">{{ certificate.admin.email }}</dd>
+                </dl>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-qr-code"></i> QR Code
+                </h5>
+            </div>
+            <div class="card-body text-center">
+                {% if certificate.qr_code_path and certificate.qr_code_path.endswith('.png') %}
+                <img src="{{ url_for('serve_qrcode', filename='qr_' + certificate.reg_number + '.png') }}" 
+                     alt="QR Code" class="img-fluid" style="max-width: 150px;">
+                <p class="text-muted mt-2 mb-0">
+                    <small>Scans to university website</small>
+                </p>
+                {% else %}
+                <i class="bi bi-qr-code-scan text-muted fs-1"></i>
+                <p class="text-muted mt-2 mb-0">
+                    <small>QR Code generated</small>
+                </p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-lightbulb"></i> Next Steps
+                </h5>
+            </div>
+            <div class="card-body">
+                <ol class="small mb-0">
+                    <li>Download the PDF certificate</li>
+                    <li>Print on official paper</li>
+                    <li>Deliver to recipient</li>
+                    <li>Keep digital copy for records</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between">
+            <a href="{{ url_for('generate_certificate_form', template_id=certificate.template_id) }}" 
+               class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Generate Another
+            </a>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
+                <i class="bi bi-house"></i> Back to Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Fullscreen modal for certificate preview -->
+<div class="modal fade" id="previewFullscreenModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content bg-dark">
+            <div class="modal-header border-0">
+                <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body d-flex justify-content-center align-items-center">
+                <img id="previewFullscreenImage" src="" alt="Certificate preview fullscreen" class="img-fluid shadow-lg">
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

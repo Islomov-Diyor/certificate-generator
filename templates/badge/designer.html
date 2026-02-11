@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Design Badge - {{ template.name }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='editor/certificate_editor.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="cert-editor-header d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">
+        <i class="bi bi-person-badge"></i> Badge Designer: {{ template.name }}
+    </h2>
+    <div>
+        <a href="{{ url_for('badge_generator') }}" class="btn btn-outline-secondary me-2">
+            <i class="bi bi-arrow-left"></i> Back to Badge Generator
+        </a>
+        <button type="button" class="btn btn-success" id="download-badge-btn">
+            <i class="bi bi-download"></i> Download Badge (PDF)
+        </button>
+    </div>
+</div>
+
+<div class="cert-editor-wrap">
+    <aside class="cert-editor-sidebar">
+        <p class="text-muted small">
+            Fill in participant details, then drag and resize text directly on the badge template.
+            All fields are optional.
+        </p>
+
+        <div class="mb-3">
+            <label class="form-label">First Name</label>
+            <input
+                type="text"
+                id="field-first-name"
+                class="form-control"
+                placeholder="First name (optional)"
+                value="{{ badge.first_name if badge else '' }}"
+            >
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Last Name</label>
+            <input
+                type="text"
+                id="field-last-name"
+                class="form-control"
+                placeholder="Last name (optional)"
+                value="{{ badge.last_name if badge else '' }}"
+            >
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">University / Organization / Institution</label>
+            <input
+                type="text"
+                id="field-institution"
+                class="form-control"
+                placeholder="Institution (optional)"
+                value="{{ badge.institution if badge else '' }}"
+            >
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Participant Type</label>
+            <select id="field-participant-type" class="form-select">
+                <option value="">(Optional)</option>
+                <option value="International Participant" {% if badge and badge.participant_type == 'International Participant' %}selected{% endif %}>
+                    International Participant
+                </option>
+                <option value="National Participant" {% if badge and badge.participant_type == 'National Participant' %}selected{% endif %}>
+                    National Participant
+                </option>
+            </select>
+        </div>
+
+        <hr>
+
+        <p class="small text-muted mb-1">
+            Click a text box on the badge to select it, then:
+        </p>
+        <ul class="small text-muted mb-2">
+            <li>Drag to reposition</li>
+            <li>Use resize handles to change size</li>
+        </ul>
+
+        <p class="small text-muted mb-0">
+            You can leave any field empty to omit it from the badge.
+        </p>
+    </aside>
+
+    <main class="cert-editor-main">
+        <div id="cert-editor-stage"></div>
+        <div class="cert-editor-preview-hint small text-muted mt-2">
+            Live preview: this layout and text will match the exported PDF.
+        </div>
+    </main>
+</div>
+
+<script>
+window.BADGE_CONFIG = {
+    templateId: {{ template.id }},
+    imageUrl: "{{ url_for('serve_badge_template_image', template_id=template.id) }}",
+    exportUrl: "{{ url_for('export_badge_pdf') }}"{% if badge %}
+    ,existingBadge: {
+        id: {{ badge.id }},
+        first_name: {{ (badge.first_name or '') | tojson }},
+        last_name: {{ (badge.last_name or '') | tojson }},
+        institution: {{ (badge.institution or '') | tojson }},
+        participant_type: {{ (badge.participant_type or '') | tojson }},
+        layout: {{ badge.get_layout() | tojson }}
+    }
+    {% endif %}
+};
+</script>
+<script src="https://unpkg.com/konva@9/konva.min.js"></script>
+<script src="{{ url_for('static', filename='editor/badge_editor.js') }}"></script>
+{% endblock %}
+

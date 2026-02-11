@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Certificate Editor</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='editor/editor.css') }}">
+  <script src="https://unpkg.com/konva@8/konva.min.js"></script>
+</head>
+<body>
+  <div id="app">
+    <aside id="sidebar">
+      <h2>Certificate Editor</h2>
+      <p class="small">Upload template image (png/jpg). Drag fields to position them. Save positions to backend.</p>
+      <label>Upload template</label>
+      <input id="file-input" type="file" accept="image/*" />
+      <div class="controls">
+        <button id="upload-btn" class="btn">Upload Template</button>
+        <button id="suggest-btn" class="btn">Auto-suggest (disabled)</button>
+        <button id="save-btn" class="btn primary">Save positions</button>
+        <button id="export-btn" class="btn">Export JSON</button>
+      </div>
+      <label>Fields</label>
+      <div id="fields-list"></div>
+      <label>Sample data JSON</label>
+      <textarea id="sample-data">{ "recipient_name":"Alexandria Montgomery", "course_name":"Advanced Data Engineering and Scalable Systems","teacher_name":"Dr. L. K. Perera","reg_number":"REG-2025-000123","date":"Dec 9, 2025" }</textarea>
+      <div style="margin-top:10px">
+        <button id="preview-btn" class="btn">Preview PDF</button>
+        <button id="clear-text" class="btn">Clear Preview Text</button>
+      </div>
+      <label>Import positions (JSON)</label>
+      <input type="file" id="import-json" accept="application/json" />
+    </aside>
+    <main id="canvas-area">
+      <div id="stage-parent"></div>
+    </main>
+  </div>
+  <script src="{{ url_for('static', filename='editor/editor.js') }}"></script>
+</body>
+</html>
+
+
+

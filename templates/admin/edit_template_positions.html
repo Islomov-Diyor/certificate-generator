@@ -1,0 +1,587 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Template Positions - Certificate Generator{% endblock %}
+
+{% block extra_css %}
+<style>
+.template-preview-container {
+    position: relative;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #f8f9fa;
+    margin-bottom: 20px;
+}
+
+.template-preview {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.position-marker {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background: rgba(255, 0, 0, 0.6);
+    border: 2px solid red;
+    border-radius: 50%;
+    cursor: move;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+    transition: all 0.2s ease;
+}
+
+.position-marker:hover {
+    background: rgba(255, 0, 0, 0.9);
+    width: 24px;
+    height: 24px;
+    z-index: 20;
+}
+
+.marker-label {
+    position: absolute;
+    top: -25px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.position-marker:hover .marker-label {
+    opacity: 1;
+}
+
+.field-active {
+    background-color: #e7f3ff !important;
+    border-color: #0d6efd !important;
+}
+
+.position-form {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.field-group {
+    margin-bottom: 15px;
+    padding: 10px;
+    border: 2px solid transparent;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.field-group:hover {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+}
+
+.field-group label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 5px;
+    display: block;
+}
+
+.coord-inputs {
+    display: flex;
+    gap: 10px;
+}
+
+.coord-inputs input {
+    flex: 1;
+}
+
+.help-text {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-top: 5px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>
+                <i class="bi bi-gear"></i> Edit Text Positions: {{ template.name }}
+            </h2>
+            <a href="{{ url_for('manage_templates') }}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Templates
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Template Preview</h5>
+                <small class="text-muted">Click and drag the red markers to position text fields</small>
+            </div>
+            <div class="card-body">
+                <div class="template-preview-container" id="previewContainer">
+                    <img src="{{ url_for('serve_template', template_id=template.id) }}" 
+                         alt="Template Preview" 
+                         class="template-preview" 
+                         id="templateImage"
+                         onload="initMarkers()">
+                    
+                    <!-- Position markers will be added dynamically -->
+                </div>
+                
+                <div class="alert alert-info mt-3">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>Instructions:</strong>
+                    <ul class="mb-0 mt-2">
+                        <li>Click and drag the red markers to position each field</li>
+                        <li>Click on a field name in the form to highlight its marker</li>
+                        <li>Registration number should be at <strong>top center</strong></li>
+                        <li>QR code should be at <strong>bottom right</strong></li>
+                        <li>Use arrow keys for fine-tuning (after clicking a marker)</li>
+                        <li>Click "Preview" button to see how it will look</li>
+                    </ul>
+                </div>
+                
+                <div class="d-grid gap-2 mt-3">
+                    <button type="button" class="btn btn-outline-primary" onclick="previewCertificate()">
+                        <i class="bi bi-eye"></i> Preview Certificate
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="resetToDefaults()">
+                        <i class="bi bi-arrow-counterclockwise"></i> Reset to Defaults
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <form method="POST" class="position-form">
+            <h5 class="mb-3">Text Field Positions</h5>
+            
+            <div class="field-group">
+                <label>Recipient Name</label>
+                <div class="coord-inputs">
+                    <input type="number" name="recipient_name_x" id="recipient_name_x" 
+                           value="{{ positions.recipient_name.x }}" class="form-control" 
+                           placeholder="X" required>
+                    <input type="number" name="recipient_name_y" id="recipient_name_y" 
+                           value="{{ positions.recipient_name.y }}" class="form-control" 
+                           placeholder="Y" required>
+                </div>
+                <small class="help-text">Main name field (large font)</small>
+            </div>
+            
+            <div class="field-group">
+                <label>Specialization</label>
+                <div class="coord-inputs">
+                    <input type="number" name="specialization_x" id="specialization_x" 
+                           value="{{ positions.specialization.x }}" class="form-control" 
+                           placeholder="X" required>
+                    <input type="number" name="specialization_y" id="specialization_y" 
+                           value="{{ positions.specialization.y }}" class="form-control" 
+                           placeholder="Y" required>
+                </div>
+            </div>
+            
+            <div class="field-group">
+                <label>Course Name</label>
+                <div class="coord-inputs">
+                    <input type="number" name="course_name_x" id="course_name_x" 
+                           value="{{ positions.course_name.x }}" class="form-control" 
+                           placeholder="X" required>
+                    <input type="number" name="course_name_y" id="course_name_y" 
+                           value="{{ positions.course_name.y }}" class="form-control" 
+                           placeholder="Y" required>
+                </div>
+            </div>
+            
+            <div class="field-group">
+                <label>Teacher Name</label>
+                <div class="coord-inputs">
+                    <input type="number" name="teacher_name_x" id="teacher_name_x" 
+                           value="{{ positions.teacher_name.x }}" class="form-control" 
+                           placeholder="X" required>
+                    <input type="number" name="teacher_name_y" id="teacher_name_y" 
+                           value="{{ positions.teacher_name.y }}" class="form-control" 
+                           placeholder="Y" required>
+                </div>
+            </div>
+            
+            <div class="field-group">
+                <label>Registration Number <span class="badge bg-primary">Top Center</span></label>
+                <div class="coord-inputs">
+                    <input type="number" name="reg_number_x" id="reg_number_x" 
+                           value="{{ positions.reg_number.x }}" class="form-control" 
+                           placeholder="X" required>
+                    <input type="number" name="reg_number_y" id="reg_number_y" 
+                           value="{{ positions.reg_number.y }}" class="form-control" 
+                           placeholder="Y" required>
+                </div>
+                <small class="help-text">Should be positioned at top center</small>
+            </div>
+            
+            <div class="field-group">
+                <label>Date</label>
+                <div class="coord-inputs">
+                    <input type="number" name="date_x" id="date_x" 
+                           value="{{ positions.date.x }}" class="form-control" 
+                           placeholder="X" required>
+                    <input type="number" name="date_y" id="date_y" 
+                           value="{{ positions.date.y }}" class="form-control" 
+                           placeholder="Y" required>
+                </div>
+            </div>
+            
+            <div class="field-group">
+                <label>QR Code <span class="badge bg-success">Bottom Right</span></label>
+                <div class="coord-inputs">
+                    <input type="number" name="qr_code_x" id="qr_code_x" 
+                           value="{{ positions.qr_code.x }}" class="form-control" 
+                           placeholder="X" required>
+                    <input type="number" name="qr_code_y" id="qr_code_y" 
+                           value="{{ positions.qr_code.y }}" class="form-control" 
+                           placeholder="Y" required>
+                </div>
+                <small class="help-text">Should be positioned at bottom right</small>
+            </div>
+            
+            <div class="d-grid gap-2 mt-4">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save"></i> Save Positions
+                </button>
+                <button type="button" class="btn btn-info" onclick="centerAllFields()">
+                    <i class="bi bi-align-center"></i> Center All Fields
+                </button>
+                <a href="{{ url_for('manage_templates') }}" class="btn btn-secondary">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let markers = {};
+let isDragging = false;
+let currentMarker = null;
+let offsetX = 0;
+let offsetY = 0;
+
+const fields = [
+    'recipient_name', 'specialization', 'course_name', 
+    'teacher_name', 'reg_number', 'date', 'qr_code'
+];
+
+function initMarkers() {
+    const container = document.getElementById('previewContainer');
+    const img = document.getElementById('templateImage');
+    
+    if (!img.complete) {
+        img.onload = initMarkers;
+        return;
+    }
+    
+    fields.forEach(field => {
+        const x = parseInt(document.getElementById(field + '_x').value);
+        const y = parseInt(document.getElementById(field + '_y').value);
+        
+        const marker = document.createElement('div');
+        marker.className = 'position-marker';
+        marker.id = 'marker_' + field;
+        marker.dataset.field = field;
+        marker.tabIndex = 0; // Make focusable for keyboard navigation
+        
+        // Add label
+        const label = document.createElement('div');
+        label.className = 'marker-label';
+        label.textContent = field.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+        marker.appendChild(label);
+        
+        // Calculate position relative to image
+        updateMarkerPosition(field);
+        
+        marker.addEventListener('mousedown', startDrag);
+        marker.addEventListener('click', function(e) {
+            e.stopPropagation();
+            highlightField(field);
+        });
+        marker.addEventListener('keydown', handleMarkerKeydown);
+        
+        container.appendChild(marker);
+        markers[field] = marker;
+    });
+    
+    // Highlight field when clicking on form inputs
+    fields.forEach(field => {
+        const group = document.querySelector(`[id="${field}_x"]`).closest('.field-group');
+        if (group) {
+            group.addEventListener('click', function() {
+                highlightField(field);
+                markers[field].focus();
+            });
+        }
+    });
+}
+
+function highlightField(field) {
+    // Remove active class from all fields
+    document.querySelectorAll('.field-group').forEach(g => g.classList.remove('field-active'));
+    document.querySelectorAll('.position-marker').forEach(m => m.style.borderColor = 'red');
+    
+    // Add active class to selected field
+    const group = document.querySelector(`[id="${field}_x"]`).closest('.field-group');
+    if (group) {
+        group.classList.add('field-active');
+    }
+    
+    if (markers[field]) {
+        markers[field].style.borderColor = '#0d6efd';
+        markers[field].style.background = 'rgba(13, 110, 253, 0.8)';
+    }
+}
+
+function handleMarkerKeydown(e) {
+    const field = e.target.dataset.field;
+    if (!field) return;
+    
+    const step = e.shiftKey ? 10 : 1; // Shift for larger steps
+    let x = parseInt(document.getElementById(field + '_x').value);
+    let y = parseInt(document.getElementById(field + '_y').value);
+    
+    switch(e.key) {
+        case 'ArrowUp':
+            y -= step;
+            e.preventDefault();
+            break;
+        case 'ArrowDown':
+            y += step;
+            e.preventDefault();
+            break;
+        case 'ArrowLeft':
+            x -= step;
+            e.preventDefault();
+            break;
+        case 'ArrowRight':
+            x += step;
+            e.preventDefault();
+            break;
+        default:
+            return;
+    }
+    
+    document.getElementById(field + '_x').value = x;
+    document.getElementById(field + '_y').value = y;
+    updateMarkerPosition(field);
+}
+
+function startDrag(e) {
+    isDragging = true;
+    currentMarker = e.target;
+    const field = currentMarker.dataset.field;
+    
+    const container = document.getElementById('previewContainer');
+    const img = document.getElementById('templateImage');
+    const rect = container.getBoundingClientRect();
+    const imgRect = img.getBoundingClientRect();
+    
+    const markerX = parseFloat(currentMarker.style.left);
+    const markerY = parseFloat(currentMarker.style.top);
+    
+    offsetX = e.clientX - (rect.left + markerX);
+    offsetY = e.clientY - (rect.top + markerY);
+    
+    document.addEventListener('mousemove', drag);
+    document.addEventListener('mouseup', stopDrag);
+    e.preventDefault();
+}
+
+function drag(e) {
+    if (!isDragging || !currentMarker) return;
+    
+    const container = document.getElementById('previewContainer');
+    const img = document.getElementById('templateImage');
+    const containerRect = container.getBoundingClientRect();
+    const imgRect = img.getBoundingClientRect();
+    
+    // Calculate mouse position relative to container
+    let x = e.clientX - containerRect.left - offsetX;
+    let y = e.clientY - containerRect.top - offsetY;
+    
+    // Constrain to image bounds
+    x = Math.max(0, Math.min(x, imgRect.width));
+    y = Math.max(0, Math.min(y, imgRect.height));
+    
+    currentMarker.style.left = x + 'px';
+    currentMarker.style.top = y + 'px';
+    
+    // Update form inputs - convert screen coordinates to image coordinates
+    const field = currentMarker.dataset.field;
+    const scaleX = img.naturalWidth / imgRect.width;
+    const scaleY = img.naturalHeight / imgRect.height;
+    
+    const actualX = Math.round(x * scaleX);
+    const actualY = Math.round(y * scaleY);
+    
+    // Constrain to image dimensions
+    const finalX = Math.max(0, Math.min(actualX, img.naturalWidth));
+    const finalY = Math.max(0, Math.min(actualY, img.naturalHeight));
+    
+    document.getElementById(field + '_x').value = finalX;
+    document.getElementById(field + '_y').value = finalY;
+    
+    // Highlight the field being dragged
+    highlightField(field);
+}
+
+function stopDrag() {
+    isDragging = false;
+    currentMarker = null;
+    document.removeEventListener('mousemove', drag);
+    document.removeEventListener('mouseup', stopDrag);
+}
+
+// Update markers when inputs change
+fields.forEach(field => {
+    ['x', 'y'].forEach(coord => {
+        const input = document.getElementById(field + '_' + coord);
+        if (input) {
+            input.addEventListener('input', function() {
+                if (markers[field]) {
+                    updateMarkerPosition(field);
+                }
+            });
+        }
+    });
+});
+
+function updateMarkerPosition(field) {
+    const marker = markers[field];
+    if (!marker) return;
+    
+    const container = document.getElementById('previewContainer');
+    const img = document.getElementById('templateImage');
+    
+    if (!img.complete) {
+        img.onload = () => updateMarkerPosition(field);
+        return;
+    }
+    
+    const imgRect = img.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    
+    const x = parseInt(document.getElementById(field + '_x').value) || 0;
+    const y = parseInt(document.getElementById(field + '_y').value) || 0;
+    
+    const scaleX = imgRect.width / img.naturalWidth;
+    const scaleY = imgRect.height / img.naturalHeight;
+    
+    const markerX = (x * scaleX);
+    const markerY = (y * scaleY);
+    
+    marker.style.left = markerX + 'px';
+    marker.style.top = markerY + 'px';
+}
+
+function centerAllFields() {
+    const img = document.getElementById('templateImage');
+    if (!img.complete) return;
+    
+    const centerX = Math.round(img.naturalWidth / 2);
+    
+    fields.forEach((field, index) => {
+        if (field === 'qr_code') {
+            // QR code stays at bottom right
+            document.getElementById(field + '_x').value = img.naturalWidth - 170;
+            document.getElementById(field + '_y').value = img.naturalHeight - 170;
+        } else if (field === 'reg_number') {
+            // Registration number at top center
+            document.getElementById(field + '_x').value = centerX;
+            document.getElementById(field + '_y').value = 50;
+        } else {
+            // Other fields centered horizontally, spaced vertically
+            document.getElementById(field + '_x').value = centerX;
+            const startY = 300;
+            const spacing = 80;
+            document.getElementById(field + '_y').value = startY + (index * spacing);
+        }
+        updateMarkerPosition(field);
+    });
+}
+
+function resetToDefaults() {
+    if (!confirm('Reset all positions to default values?')) return;
+    
+    const defaults = {
+        'recipient_name': {x: 397, y: 450},
+        'specialization': {x: 397, y: 520},
+        'course_name': {x: 397, y: 590},
+        'teacher_name': {x: 397, y: 660},
+        'reg_number': {x: 397, y: 730},
+        'date': {x: 397, y: 800},
+        'qr_code': {x: 650, y: 1000}
+    };
+    
+    fields.forEach(field => {
+        if (defaults[field]) {
+            document.getElementById(field + '_x').value = defaults[field].x;
+            document.getElementById(field + '_y').value = defaults[field].y;
+            updateMarkerPosition(field);
+        }
+    });
+}
+
+function previewCertificate() {
+    // Collect all positions
+    const positions = {};
+    fields.forEach(field => {
+        positions[field] = {
+            x: parseInt(document.getElementById(field + '_x').value),
+            y: parseInt(document.getElementById(field + '_y').value)
+        };
+    });
+    
+    // Show preview in modal or new window
+    alert('Preview feature: Positions saved!\n\n' + 
+          'To see actual preview, save positions and generate a test certificate.');
+}
+
+// Handle window resize
+let resizeTimeout;
+window.addEventListener('resize', function() {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(function() {
+        fields.forEach(field => {
+            if (markers[field]) {
+                updateMarkerPosition(field);
+            }
+        });
+    }, 250);
+});
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    // Wait for image to load
+    const img = document.getElementById('templateImage');
+    if (img.complete) {
+        initMarkers();
+    } else {
+        img.addEventListener('load', initMarkers);
+    }
+});
+</script>
+{% endblock %}
+

@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+
+{% block title %}Login - Certificate Generator{% endblock %}
+
+{% block extra_css %}
+<style>
+body.login-page {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    position: relative;
+    overflow-x: hidden;
+}
+
+body.login-page footer {
+    display: none !important;
+}
+
+.login-container {
+    width: 100%;
+    max-width: 450px;
+}
+
+.login-card {
+    border: none;
+    border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+}
+
+.login-card .card-body {
+    padding: 3rem 2.5rem;
+    background: white;
+}
+
+.login-icon {
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1.5rem;
+    color: white;
+    font-size: 2.5rem;
+}
+
+.login-title {
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: #2d3748;
+    margin-bottom: 0.5rem;
+}
+
+.login-subtitle {
+    color: #718096;
+    font-size: 0.95rem;
+    margin-bottom: 2rem;
+}
+
+.form-label {
+    font-weight: 500;
+    color: #2d3748;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.form-control {
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    border: 2px solid #e2e8f0;
+    transition: all 0.3s ease;
+    font-size: 0.95rem;
+}
+
+.form-control:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+.btn-login {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    padding: 0.75rem 2rem;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    width: 100%;
+}
+
+.btn-login:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+}
+
+.btn-login:active {
+    transform: translateY(0);
+}
+
+.help-text {
+    color: #a0aec0;
+    font-size: 0.85rem;
+    margin-top: 1.5rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .login-card .card-body {
+        padding: 2rem 1.5rem;
+    }
+    
+    .login-title {
+        font-size: 1.5rem;
+    }
+    
+    .login-icon {
+        width: 70px;
+        height: 70px;
+        font-size: 2rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .login-card .card-body {
+        padding: 1.5rem 1.25rem;
+    }
+    
+    .login-title {
+        font-size: 1.35rem;
+    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="card login-card shadow-lg">
+        <div class="card-body">
+            <div class="text-center mb-4">
+                <div class="login-icon">
+                    <i class="bi bi-award"></i>
+                </div>
+                <h2 class="login-title">University Certificate Generator</h2>
+                <p class="login-subtitle">Admin Login Portal</p>
+            </div>
+            
+            <form method="POST" id="loginForm" action="{{ url_for('login') }}">
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email Address</label>
+                    <input type="email" class="form-control" id="email" name="email" placeholder="Enter your email" required autofocus>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" class="form-control" id="password" name="password" placeholder="Enter your password" required>
+                </div>
+                
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary btn-login" id="loginButton">
+                        <i class="bi bi-box-arrow-in-right me-2"></i> Sign In
+                    </button>
+                </div>
+            </form>
+            
+            <script>
+            // Simple login form handler - don't interfere with submission
+            document.getElementById('loginForm').addEventListener('submit', function(e) {
+                const button = document.getElementById('loginButton');
+                const originalHTML = button.innerHTML;
+                button.disabled = true;
+                button.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Signing in...';
+                
+                // Form will submit normally - if it fails, page will reload and button will reset
+            });
+            </script>
+            
+            <div class="text-center help-text">
+                <small>
+                    <i class="bi bi-shield-lock me-1"></i>
+                    Contact Super Admin for account access
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

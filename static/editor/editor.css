@@ -1,0 +1,39 @@
+/* Basic layout for the editor */
+body, html { height: 100%; margin: 0; font-family: system-ui, Arial, sans-serif }
+#app { display:flex; height:100vh }
+#sidebar { width:360px; padding:16px; box-sizing:border-box; border-right:1px solid #eee; overflow:auto }
+#canvas-area { flex:1; background:#f4f6f8; display:flex; align-items:center; justify-content:center; overflow:auto }
+#stage-parent { background:#fff; box-shadow:0 6px 20px rgba(0,0,0,0.06); padding:12px; max-width:100%; box-sizing:border-box }
+.btn { padding:8px 10px; margin:6px 4px; border-radius:6px; border:1px solid #ccc; background:#fff; cursor:pointer }
+.btn.primary { background:#2563eb; color:#fff; border-color:#2563eb }
+.small { font-size:13px; color:#666 }
+#fields-list .field-row { padding:8px; border:1px dashed #ddd; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; border-radius:6px }
+textarea { width:100%; min-height:120px; font-family: monospace }
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  #app {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  #sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid #eee;
+  }
+
+  #canvas-area {
+    width: 100%;
+    padding: 12px;
+  }
+
+  #stage-parent {
+    width: 100%;
+    overflow-x: auto;
+  }
+}
+
+
+

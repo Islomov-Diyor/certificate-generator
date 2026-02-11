@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Badge History{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="mb-0">
+                <i class="bi bi-clock-history"></i> Badge History
+            </h2>
+            <p class="text-muted mb-0 small">
+                Previously generated badges. You can reopen them in the designer or download the PDF again.
+            </p>
+        </div>
+        <a href="{{ url_for('badge_generator') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Badge Generator
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        {% if badges %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Created At</th>
+                        <th>Participant</th>
+                        <th>Institution</th>
+                        <th>Type</th>
+                        <th>Template</th>
+                        <th>Downloads</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for badge in badges %}
+                    <tr>
+                        <td>{{ badge.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>
+                            {{ (badge.first_name or '') ~ (' ' if badge.first_name and badge.last_name else '') ~ (badge.last_name or '') }}
+                            {% if not badge.first_name and not badge.last_name %}
+                                <span class="text-muted small">(no name)</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ badge.institution or '-' }}</td>
+                        <td>{{ badge.participant_type or '-' }}</td>
+                        <td>{{ badge.template.name }}</td>
+                        <td>{{ badge.download_count }}</td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a href="{{ url_for('badge_designer_reopen', badge_id=badge.id) }}" class="btn btn-info">
+                                    <i class="bi bi-pencil-square"></i> Reopen
+                                </a>
+                                <a href="{{ url_for('download_badge', badge_id=badge.id) }}" class="btn btn-success">
+                                    <i class="bi bi-download"></i> Download
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-4">
+            <i class="bi bi-inbox text-muted fs-1"></i>
+            <p class="text-muted mt-2 mb-0">No badges have been generated yet.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
