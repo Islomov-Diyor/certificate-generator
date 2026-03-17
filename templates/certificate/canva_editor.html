@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}
+  {% if certificate %}Edit Certificate #{{ certificate.reg_number }}{% else %}Design Certificate – {{ template.name }}{% endif %}
+{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="{{ url_for('static', filename='editor/canva_editor.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="canva-editor" id="canvaEditor">
+
+  {# ── Top toolbar ── #}
+  <div class="ce-toolbar">
+    <a href="{{ url_for('dashboard') }}" class="ce-tb-back"><i class="bi bi-arrow-left"></i> Dashboard</a>
+    <span class="ce-tb-divider"></span>
+    <span class="ce-tb-title" title="{{ template.name }}">{{ template.name }}</span>
+    <span class="ce-tb-divider"></span>
+
+    {# Context-sensitive font bar (visible when a field is selected) #}
+    <div class="ce-ctx-bar" id="ctxBar">
+      <input type="number" id="ctxFontSize" min="8" max="120" value="32" title="Font size">
+      <span class="ce-tb-divider"></span>
+      <button class="ce-ctx-btn" id="ctxBold" title="Bold"><b>B</b></button>
+      <button class="ce-ctx-btn" id="ctxItalic" title="Italic"><i style="font-style:italic">I</i></button>
+      <span class="ce-tb-divider"></span>
+      <button class="ce-ctx-btn" data-align="left" title="Align left"><i class="bi bi-text-left"></i></button>
+      <button class="ce-ctx-btn" data-align="center" title="Align center"><i class="bi bi-text-center"></i></button>
+      <button class="ce-ctx-btn" data-align="right" title="Align right"><i class="bi bi-text-right"></i></button>
+      <span class="ce-tb-divider"></span>
+      <input type="color" id="ctxColor" value="#000000" title="Text color">
+    </div>
+
+    <div class="ce-tb-actions">
+      <button class="ce-btn ce-btn-outline" id="btnUndo" title="Undo (Ctrl+Z)"><i class="bi bi-arrow-counterclockwise"></i></button>
+      <button class="ce-btn ce-btn-outline" id="btnRedo" title="Redo (Ctrl+Y)"><i class="bi bi-arrow-clockwise"></i></button>
+      <span class="ce-tb-divider"></span>
+      <button class="ce-btn ce-btn-outline" id="btnSave"><i class="bi bi-save"></i> Save</button>
+      <button class="ce-btn ce-btn-success" id="btnGenerate">
+        {% if certificate %}<i class="bi bi-arrow-repeat"></i> Update & Download
+        {% else %}<i class="bi bi-download"></i> Generate & Download{% endif %}
+      </button>
+    </div>
+  </div>
+
+  {# ── Body: sidebar + canvas ── #}
+  <div class="ce-body">
+
+    {# ── Left sidebar ── #}
+    <aside class="ce-sidebar" id="ceSidebar">
+      <div class="ce-sidebar-header"><i class="bi bi-sliders"></i> Certificate Fields</div>
+      <div class="ce-sidebar-section" id="fieldsList">
+        {# JS will inject field cards here #}
+      </div>
+
+      <div class="ce-sidebar-header"><i class="bi bi-gear"></i> Auto-generated</div>
+      <div class="ce-sidebar-section">
+        <div class="ce-auto-section">
+          <div class="ce-auto-row">
+            <span>Reg. Number</span>
+            <code id="autoRegNum">{{ certificate.reg_number if certificate else 'auto' }}</code>
+          </div>
+          <div class="ce-auto-row">
+            <span>Date</span>
+            <code id="autoDate">{{ certificate.generated_at.strftime('%B %d, %Y') if certificate else 'today' }}</code>
+          </div>
+          <div class="ce-auto-row">
+            <span>QR Code</span>
+            <span>
+              <label class="ce-vis-toggle" title="Toggle QR visibility">
+                <input type="checkbox" id="qrToggle" checked hidden>
+                <i class="bi bi-eye" id="qrToggleIcon"></i>
+              </label>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="ce-sidebar-actions">
+        <button class="ce-sidebar-btn generate" id="btnSidebarGenerate">
+          {% if certificate %}<i class="bi bi-arrow-repeat"></i> Update & Download
+          {% else %}<i class="bi bi-stars"></i> Generate & Download{% endif %}
+        </button>
+        <button class="ce-sidebar-btn save" id="btnSidebarSave">
+          <i class="bi bi-save"></i> Save Layout
+        </button>
+      </div>
+    </aside>
+
+    {# ── Canvas area ── #}
+    <div class="ce-canvas-area" id="ceCanvasArea">
+      <div class="ce-loading" id="ceLoading"><div class="ce-spinner"></div></div>
+      <div class="ce-stage-wrapper" id="ceStageWrapper">
+        <div id="ceStage"></div>
+      </div>
+      <div class="ce-hint">Arrow keys: nudge &bull; Shift+Arrow: big nudge &bull; Scroll: zoom</div>
+      <div class="ce-zoom-bar">
+        <button class="ce-zoom-btn" id="zoomOut" title="Zoom out"><i class="bi bi-dash"></i></button>
+        <span class="ce-zoom-label" id="zoomLabel">100%</span>
+        <button class="ce-zoom-btn" id="zoomIn" title="Zoom in"><i class="bi bi-plus"></i></button>
+        <button class="ce-zoom-btn" id="zoomFit" title="Fit to screen"><i class="bi bi-arrows-angle-expand"></i></button>
+      </div>
+      <div class="ce-status-bar"><div class="ce-toast" id="ceToast"></div></div>
+    </div>
+  </div>
+</div>
+
+{# ── Editor configuration (injected from server) ── #}
+<script>
+window.CE_CONFIG = {
+  mode: {{ ('edit' if certificate else 'new') | tojson }},
+  templateId: {{ template.id }},
+  certificateId: {{ certificate.id if certificate else 'null' }},
+  imageUrl: "{{ url_for('serve_template', template_id=template.id) }}",
+  layoutUrl: {% if certificate %}"{{ url_for('api_certificate_layout_get', certificate_id=certificate.id) }}"{% else %}"{{ url_for('api_template_layout_get', template_id=template.id) }}"{% endif %},
+  saveLayoutUrl: {% if certificate %}"{{ url_for('api_certificate_layout_save', certificate_id=certificate.id) }}"{% else %}"{{ url_for('api_template_layout_save', template_id=template.id) }}"{% endif %},
+  generateUrl: "{{ url_for('api_design_generate') }}",
+  downloadUrl: {% if certificate %}"{{ url_for('download_certificate', certificate_id=certificate.id) }}"{% else %}null{% endif %},
+  previewUrl: {% if certificate %}"{{ url_for('preview_certificate', certificate_id=certificate.id) }}"{% else %}null{% endif %},
+  dashboardUrl: "{{ url_for('dashboard') }}",
+  certificateData: {% if certificate %}{
+    recipient_name: {{ (certificate.recipient_name or '') | tojson }},
+    specialization: {{ (certificate.specialization or '') | tojson }},
+    course_name: {{ (certificate.course_name or '') | tojson }},
+    teacher_name: {{ (certificate.teacher_name or '') | tojson }},
+    reg_number: {{ certificate.reg_number | tojson }},
+    date: {{ certificate.generated_at.strftime('%B %d, %Y') | tojson }}
+  }{% else %}null{% endif %}
+};
+</script>
+<script src="https://unpkg.com/konva@9/konva.min.js"></script>
+<script src="{{ url_for('static', filename='editor/canva_editor.js') }}"></script>
+{% endblock %}

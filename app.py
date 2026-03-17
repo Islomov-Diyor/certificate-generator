@@ -819,6 +819,80 @@ def download_badge(badge_id):
         mimetype='application/pdf',
     )
 
+@app.route('/certificate/design/<int:template_id>')
+@login_required
+def certificate_design(template_id):
+    """Canva-style certificate editor (new certificate) – both Admin and Super Admin."""
+    template = CertificateTemplate.query.get_or_404(template_id)
+    return render_template('certificate/canva_editor.html', template=template, certificate=None)
+
+
+@app.route('/certificate/<int:certificate_id>/design')
+@login_required
+def certificate_design_edit(certificate_id):
+    """Canva-style certificate editor (existing certificate) – both Admin and Super Admin."""
+    certificate = GeneratedCertificate.query.get_or_404(certificate_id)
+    if current_user.role != 'super_admin' and certificate.admin_id != current_user.id:
+        flash('Access denied', 'error')
+        return redirect(url_for('dashboard'))
+    return render_template('certificate/canva_editor.html',
+                           template=certificate.template, certificate=certificate)
+
+
+@app.route('/api/certificate/design/generate', methods=['POST'])
+@login_required
+def api_design_generate():
+    """API: create (or update) a certificate from the Canva editor and return download URL."""
+    data = request.get_json(force=True)
+    template_id = data.get('template_id')
+    certificate_id = data.get('certificate_id')
+    fields = data.get('fields') or {}
+    layout_data = data.get('layout')
+
+    if not template_id:
+        return jsonify({'error': 'template_id is required'}), 400
+
+    template = CertificateTemplate.query.get_or_404(template_id)
+
+    if certificate_id:
+        certificate = GeneratedCertificate.query.get_or_404(certificate_id)
+        if current_user.role != 'super_admin' and certificate.admin_id != current_user.id:
+            return jsonify({'error': 'Forbidden'}), 403
+        certificate.recipient_name = fields.get('recipient_name', certificate.recipient_name) or ''
+        certificate.specialization = fields.get('specialization', certificate.specialization) or ''
+        certificate.course_name = fields.get('course_name', certificate.course_name)
+        certificate.teacher_name = fields.get('teacher_name', certificate.teacher_name)
+    else:
+        reg_number = generate_registration_number()
+        qr_filename = f"qr_{reg_number}.png"
+        qr_url = "https://university.uz"
+        qr_code_path = generate_qr_code(qr_url, qr_filename)
+        certificate = GeneratedCertificate(
+            template_id=template_id,
+            admin_id=current_user.id,
+            recipient_name=fields.get('recipient_name', '') or '',
+            specialization=fields.get('specialization', '') or '',
+            course_name=fields.get('course_name', ''),
+            teacher_name=fields.get('teacher_name', ''),
+            reg_number=reg_number,
+            qr_code_path=qr_code_path,
+        )
+        db.session.add(certificate)
+        db.session.flush()
+
+    if layout_data and 'fields' in layout_data:
+        save_certificate_override(app.config['UPLOAD_FOLDER'], certificate.id, layout_data)
+
+    db.session.commit()
+
+    return jsonify({
+        'ok': True,
+        'certificate_id': certificate.id,
+        'download_url': url_for('download_certificate', certificate_id=certificate.id),
+        'preview_url': url_for('preview_certificate', certificate_id=certificate.id),
+    })
+
+
 @app.route('/certificate/generate/<int:template_id>')
 @login_required
 def generate_certificate_form(template_id):

@@ -40,6 +40,19 @@ QR_DEFAULT_SIZE_PX = 150
 FONT_SCALE_MIN = 0.7
 FONT_SCALE_MAX = 4.0
 
+def _parse_color(val, default: Tuple[int, int, int] = (0, 0, 0)) -> Tuple[int, int, int]:
+    """Convert a hex color string like '#ff0000' to an (R,G,B) tuple."""
+    if not val or not isinstance(val, str):
+        return default
+    val = val.strip().lstrip('#')
+    if len(val) == 6:
+        try:
+            return (int(val[0:2], 16), int(val[2:4], 16), int(val[4:6], 16))
+        except ValueError:
+            return default
+    return default
+
+
 LAYOUT_VERSION = 1
 FIELD_KEYS = [
     'recipient_name', 'specialization', 'course_name', 'teacher_name',
@@ -210,6 +223,8 @@ def render_certificate_to_pil(
         if key == 'date' and not value:
             continue
         cfg = fields_cfg.get(key, {})
+        if cfg.get('visible') is False:
+            continue
         x_pct = cfg.get('x_pct', 50)
         y_pct = cfg.get('y_pct', 50)
         x_px = int(w * (x_pct / 100.0))
@@ -217,16 +232,24 @@ def render_certificate_to_pil(
         anchor = cfg.get('anchor', 'center')
         max_width_pct = cfg.get('max_width_pct')
         max_width_px = int(w * (max_width_pct / 100.0)) if max_width_pct else None
-        font_size_key = cfg.get('font_size', 'medium')
-        if key == 'recipient_name':
-            font_size_key = 'large'
-        elif key in ('reg_number', 'date'):
-            font_size_key = 'small'
-        font_px = _scale_font_size(font_size_key, h)
-        font = _get_font_at_size(font_px)
-        _draw_text_with_anchor(draw, value, x_px, y_px, anchor, font, TEXT_COLOR, max_width_px)
 
-    if qr_img and 'qr_code' in fields_cfg:
+        if cfg.get('font_size_px'):
+            scale_ratio = h / REFERENCE_HEIGHT
+            scale_ratio = max(FONT_SCALE_MIN, min(FONT_SCALE_MAX, scale_ratio))
+            font_px = max(12, min(200, int(round(cfg['font_size_px'] * scale_ratio))))
+        else:
+            font_size_key = cfg.get('font_size', 'medium')
+            if key == 'recipient_name':
+                font_size_key = 'large'
+            elif key in ('reg_number', 'date'):
+                font_size_key = 'small'
+            font_px = _scale_font_size(font_size_key, h)
+
+        font = _get_font_at_size(font_px)
+        color = _parse_color(cfg.get('color'), TEXT_COLOR)
+        _draw_text_with_anchor(draw, value, x_px, y_px, anchor, font, color, max_width_px)
+
+    if qr_img and 'qr_code' in fields_cfg and fields_cfg['qr_code'].get('visible', True) is not False:
         cfg = fields_cfg['qr_code']
         x_pct = cfg.get('x_pct', 88)
         y_pct = cfg.get('y_pct', 92)
