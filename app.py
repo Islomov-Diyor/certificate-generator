@@ -421,17 +421,40 @@ def delete_template(template_id):
     if current_user.role != 'super_admin':
         flash('Access denied. Super Admin only.', 'error')
         return redirect(url_for('dashboard'))
-    
+
     template = CertificateTemplate.query.get_or_404(template_id)
-    
-    # Delete file if it exists
-    if os.path.exists(template.file_path):
-        os.remove(template.file_path)
-    
-    db.session.delete(template)
-    db.session.commit()
-    
-    flash('Template deleted successfully', 'success')
+
+    # Check if any certificates use this template (foreign key constraint)
+    cert_count = GeneratedCertificate.query.filter_by(template_id=template_id).count()
+    if cert_count > 0:
+        flash(
+            f'Cannot delete template: {cert_count} certificate(s) were generated from it. '
+            'Delete those certificates first, or use a different template.',
+            'error'
+        )
+        return redirect(url_for('manage_templates'))
+
+    # Resolve file path (works on PythonAnywhere where CWD may differ)
+    file_path = template.file_path
+    if not os.path.isabs(file_path):
+        file_path = os.path.join(app.root_path, file_path)
+
+    try:
+        if os.path.exists(file_path) and os.path.isfile(file_path):
+            os.remove(file_path)
+    except OSError as e:
+        app.logger.warning(f'Could not delete template file {file_path}: {e}')
+        # Continue with DB delete; file may be missing after redeploy
+
+    try:
+        db.session.delete(template)
+        db.session.commit()
+        flash('Template deleted successfully', 'success')
+    except Exception as e:
+        db.session.rollback()
+        app.logger.exception('Template delete failed')
+        flash(f'Could not delete template: {str(e)}', 'error')
+
     return redirect(url_for('manage_templates'))
 
 @app.route('/admin/templates/<int:template_id>/edit-positions')
@@ -580,13 +603,25 @@ def delete_badge_template(template_id):
 
     template = BadgeTemplate.query.get_or_404(template_id)
 
-    if os.path.exists(template.file_path):
-        os.remove(template.file_path)
+    file_path = template.file_path
+    if not os.path.isabs(file_path):
+        file_path = os.path.join(app.root_path, file_path)
 
-    db.session.delete(template)
-    db.session.commit()
+    try:
+        if os.path.exists(file_path) and os.path.isfile(file_path):
+            os.remove(file_path)
+    except OSError as e:
+        app.logger.warning(f'Could not delete badge file {file_path}: {e}')
 
-    flash('Badge template deleted successfully.', 'success')
+    try:
+        db.session.delete(template)
+        db.session.commit()
+        flash('Badge template deleted successfully.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        app.logger.exception('Badge template delete failed')
+        flash(f'Could not delete badge template: {str(e)}', 'error')
+
     return redirect(url_for('badge_generator'))
 
 
