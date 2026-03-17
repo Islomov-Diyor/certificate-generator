@@ -1186,17 +1186,46 @@ def create_user():
 def delete_user(user_id):
     if current_user.role != 'super_admin':
         flash('Access denied. Super Admin only.', 'error')
-        return redirect(url_for('dashboard'))
-    
+        return redirect(url_for('manage_users'))
+
     if user_id == current_user.id:
         flash('Cannot delete your own account', 'error')
         return redirect(url_for('manage_users'))
-    
+
     user = User.query.get_or_404(user_id)
-    db.session.delete(user)
-    db.session.commit()
-    
-    flash('User deleted successfully', 'success')
+
+    # Check for related records (foreign key constraints)
+    cert_count = GeneratedCertificate.query.filter_by(admin_id=user_id).count()
+    badge_count = GeneratedBadge.query.filter_by(admin_id=user_id).count()
+    template_count = CertificateTemplate.query.filter_by(created_by=user_id).count()
+    badge_tpl_count = BadgeTemplate.query.filter_by(created_by=user_id).count()
+
+    if cert_count or badge_count or template_count or badge_tpl_count:
+        parts = []
+        if cert_count:
+            parts.append(f'{cert_count} certificate(s)')
+        if badge_count:
+            parts.append(f'{badge_count} badge(s)')
+        if template_count:
+            parts.append(f'{template_count} certificate template(s)')
+        if badge_tpl_count:
+            parts.append(f'{badge_tpl_count} badge template(s)')
+        flash(
+            f'Cannot delete user: they have {", ".join(parts)}. '
+            'Delete or reassign those first.',
+            'error'
+        )
+        return redirect(url_for('manage_users'))
+
+    try:
+        db.session.delete(user)
+        db.session.commit()
+        flash('User deleted successfully', 'success')
+    except Exception as e:
+        db.session.rollback()
+        app.logger.exception('User delete failed')
+        flash(f'Could not delete user: {str(e)}', 'error')
+
     return redirect(url_for('manage_users'))
 
 # API endpoints for AJAX requests
