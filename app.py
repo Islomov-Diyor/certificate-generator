@@ -162,12 +162,31 @@ def allowed_file(filename):
 
 
 def resolve_upload_path(relative_path):
-    """Resolve relative file path to absolute (works on PythonAnywhere where CWD may differ)."""
+    """
+    Resolve file path to absolute (works on PythonAnywhere where CWD may differ).
+    Handles: relative paths, Windows paths (C:\\...), backslashes.
+    """
     if not relative_path:
         return None
-    if os.path.isabs(relative_path):
-        return relative_path
-    return os.path.join(app.root_path, relative_path)
+    base = os.environ.get('UPLOAD_ROOT') or app.root_path
+    path = str(relative_path).replace('\\', '/').strip()
+    # Windows absolute path (C:/, D:/) - won't exist on Linux
+    if len(path) > 2 and path[1] == ':':
+        if 'uploads' in path.lower():
+            idx = path.lower().find('uploads')
+            suffix = path[idx:]
+            return os.path.join(base, suffix)
+        filename = os.path.basename(path)
+        if 'badge' in path.lower():
+            return os.path.join(base, 'uploads', 'badge_templates', filename)
+        if 'qrcode' in path.lower():
+            return os.path.join(base, 'uploads', 'qrcodes', filename)
+        return os.path.join(base, 'uploads', 'templates', filename)
+    # Unix absolute path - use as-is
+    if path.startswith('/'):
+        return path
+    # Relative path
+    return os.path.join(base, path)
 
 def detect_placeholder_positions(template_path):
     """
@@ -389,8 +408,10 @@ def upload_template():
             filename = secure_filename(file.filename)
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             filename = f"{timestamp}_{filename}"
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], 'templates', filename)
-            file.save(filepath)
+            rel_path = os.path.join(app.config['UPLOAD_FOLDER'], 'templates', filename)
+            abs_path = resolve_upload_path(rel_path) or os.path.join(app.root_path, rel_path)
+            os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+            file.save(abs_path)
             
             # Try to detect placeholder positions
             positions = detect_placeholders_with_ocr(filepath)
@@ -400,7 +421,7 @@ def upload_template():
             template = CertificateTemplate(
                 name=name,
                 category=category,
-                file_path=filepath,
+                file_path=rel_path,
                 created_by=current_user.id
             )
             
@@ -528,7 +549,12 @@ def serve_template(template_id):
     file_path = resolve_upload_path(template.file_path)
     if file_path and os.path.exists(file_path) and os.path.isfile(file_path):
         return send_file(file_path)
-    app.logger.warning(f'Template file not found: {template.file_path} (resolved: {file_path})')
+    # Fallback: try filename only in uploads/templates (for corrupted DB paths)
+    filename = os.path.basename(template.file_path.replace('\\', '/'))
+    fallback = os.path.join(app.root_path, 'uploads', 'templates', filename)
+    if os.path.exists(fallback) and os.path.isfile(fallback):
+        return send_file(fallback)
+    app.logger.warning(f'Template file not found: {template.file_path} -> {file_path} (root: {app.root_path})')
     return '', 404
 
 
@@ -582,12 +608,14 @@ def upload_badge_template():
             filename = secure_filename(file.filename)
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             filename = f"{timestamp}_{filename}"
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], 'badge_templates', filename)
-            file.save(filepath)
+            rel_path = os.path.join(app.config['UPLOAD_FOLDER'], 'badge_templates', filename)
+            abs_path = resolve_upload_path(rel_path) or os.path.join(app.root_path, rel_path)
+            os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+            file.save(abs_path)
 
             template = BadgeTemplate(
                 name=name,
-                file_path=filepath,
+                file_path=rel_path,
                 created_by=current_user.id,
             )
             db.session.add(template)
