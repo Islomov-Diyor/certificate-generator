@@ -414,9 +414,9 @@ def upload_template():
             file.save(abs_path)
             
             # Try to detect placeholder positions
-            positions = detect_placeholders_with_ocr(filepath)
+            positions = detect_placeholders_with_ocr(abs_path)
             if not positions:
-                positions = detect_placeholder_positions(filepath)
+                positions = detect_placeholder_positions(abs_path)
             
             template = CertificateTemplate(
                 name=name,
