@@ -160,6 +160,15 @@ def allowed_file(filename):
     """Check if file extension is allowed"""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'pdf', 'jpg', 'jpeg'}
 
+
+def resolve_upload_path(relative_path):
+    """Resolve relative file path to absolute (works on PythonAnywhere where CWD may differ)."""
+    if not relative_path:
+        return None
+    if os.path.isabs(relative_path):
+        return relative_path
+    return os.path.join(app.root_path, relative_path)
+
 def detect_placeholder_positions(template_path):
     """
     Detect placeholder text positions in template image.
@@ -434,13 +443,9 @@ def delete_template(template_id):
         )
         return redirect(url_for('manage_templates'))
 
-    # Resolve file path (works on PythonAnywhere where CWD may differ)
-    file_path = template.file_path
-    if not os.path.isabs(file_path):
-        file_path = os.path.join(app.root_path, file_path)
-
+    file_path = resolve_upload_path(template.file_path)
     try:
-        if os.path.exists(file_path) and os.path.isfile(file_path):
+        if file_path and os.path.exists(file_path) and os.path.isfile(file_path):
             os.remove(file_path)
     except OSError as e:
         app.logger.warning(f'Could not delete template file {file_path}: {e}')
@@ -491,9 +496,12 @@ def api_template_layout_get(template_id):
         return jsonify(raw)
     # Legacy pixel format: normalize using template image size
     try:
-        from PIL import Image
-        img = Image.open(template.file_path)
-        w, h = img.size
+        path = resolve_upload_path(template.file_path)
+        if path and os.path.exists(path):
+            img = Image.open(path)
+            w, h = img.size
+        else:
+            w, h = 794, 1123
     except Exception:
         w, h = 794, 1123
     return jsonify(normalize_layout(raw, w, h))
@@ -517,11 +525,11 @@ def api_template_layout_save(template_id):
 def serve_template(template_id):
     """Serve template image for preview"""
     template = CertificateTemplate.query.get_or_404(template_id)
-    if os.path.exists(template.file_path):
-        return send_file(template.file_path)
-    else:
-        flash('Template file not found', 'error')
-        return redirect(url_for('manage_templates'))
+    file_path = resolve_upload_path(template.file_path)
+    if file_path and os.path.exists(file_path) and os.path.isfile(file_path):
+        return send_file(file_path)
+    app.logger.warning(f'Template file not found: {template.file_path} (resolved: {file_path})')
+    return '', 404
 
 
 @app.route('/uploads/qrcodes/<path:filename>')
@@ -603,12 +611,9 @@ def delete_badge_template(template_id):
 
     template = BadgeTemplate.query.get_or_404(template_id)
 
-    file_path = template.file_path
-    if not os.path.isabs(file_path):
-        file_path = os.path.join(app.root_path, file_path)
-
+    file_path = resolve_upload_path(template.file_path)
     try:
-        if os.path.exists(file_path) and os.path.isfile(file_path):
+        if file_path and os.path.exists(file_path) and os.path.isfile(file_path):
             os.remove(file_path)
     except OSError as e:
         app.logger.warning(f'Could not delete badge file {file_path}: {e}')
@@ -630,10 +635,11 @@ def delete_badge_template(template_id):
 def serve_badge_template_image(template_id):
     """Serve badge template image for the badge designer."""
     template = BadgeTemplate.query.get_or_404(template_id)
-    if os.path.exists(template.file_path):
-        return send_file(template.file_path)
-    flash('Badge template file not found.', 'error')
-    return redirect(url_for('badge_generator'))
+    file_path = resolve_upload_path(template.file_path)
+    if file_path and os.path.exists(file_path) and os.path.isfile(file_path):
+        return send_file(file_path)
+    app.logger.warning(f'Badge template file not found: {template.file_path}')
+    return '', 404
 
 
 @app.route('/badges/designer/<int:template_id>')
@@ -779,7 +785,8 @@ def export_badge_pdf():
     db.session.commit()
 
     try:
-        pdf_buffer = render_badge_to_pdf(template.file_path, positions, data)
+        tpl_path = resolve_upload_path(template.file_path)
+        pdf_buffer = render_badge_to_pdf(tpl_path, positions, data)
     except Exception as e:
         print(f"Error rendering badge PDF: {e}")
         # Roll back persisted badge if rendering fails
@@ -833,7 +840,8 @@ def download_badge(badge_id):
     }
 
     try:
-        pdf_buffer = render_badge_to_pdf(badge.template.file_path, positions, data)
+        tpl_path = resolve_upload_path(badge.template.file_path)
+        pdf_buffer = render_badge_to_pdf(tpl_path, positions, data)
     except Exception as e:
         print(f"Error re-rendering badge PDF: {e}")
         flash('Failed to generate badge PDF.', 'error')
@@ -916,7 +924,7 @@ def api_design_generate():
         db.session.flush()
 
     if layout_data and 'fields' in layout_data:
-        save_certificate_override(app.config['UPLOAD_FOLDER'], certificate.id, layout_data)
+        save_certificate_override(resolve_upload_path(app.config['UPLOAD_FOLDER']) or app.config['UPLOAD_FOLDER'], certificate.id, layout_data)
 
     db.session.commit()
 
@@ -988,18 +996,22 @@ def certificate_preview_image(certificate_id):
     if current_user.role != 'super_admin' and certificate.admin_id != current_user.id:
         return '', 403
     try:
-        template_img = Image.open(certificate.template.file_path)
+        path = resolve_upload_path(certificate.template.file_path)
+        if not path or not os.path.exists(path):
+            return '', 404
+        template_img = Image.open(path)
         w, h = template_img.size
     except Exception:
         return '', 404
     layout = certificate.template.get_text_positions()
-    override = load_certificate_override(app.config['UPLOAD_FOLDER'], certificate.id)
+    override = load_certificate_override(resolve_upload_path(app.config['UPLOAD_FOLDER']) or app.config['UPLOAD_FOLDER'], certificate.id)
     if override and 'fields' in override:
         layout = override
     layout = normalize_layout(layout, w, h)
     qr_img = None
-    if certificate.qr_code_path and os.path.exists(certificate.qr_code_path):
-        qr_img = Image.open(certificate.qr_code_path)
+    qr_path = resolve_upload_path(certificate.qr_code_path) if certificate.qr_code_path else None
+    if qr_path and os.path.exists(qr_path):
+        qr_img = Image.open(qr_path)
     pil_out = render_certificate_to_pil(
         template_img,
         recipient_name=certificate.recipient_name,
@@ -1036,7 +1048,7 @@ def api_certificate_layout_get(certificate_id):
     certificate = GeneratedCertificate.query.get_or_404(certificate_id)
     if current_user.role != 'super_admin' and certificate.admin_id != current_user.id:
         return jsonify({'error': 'Forbidden'}), 403
-    override = load_certificate_override(app.config['UPLOAD_FOLDER'], certificate.id)
+    override = load_certificate_override(resolve_upload_path(app.config['UPLOAD_FOLDER']) or app.config['UPLOAD_FOLDER'], certificate.id)
     if override and 'fields' in override:
         return jsonify(override)
     template = certificate.template
@@ -1044,8 +1056,12 @@ def api_certificate_layout_get(certificate_id):
     if not raw:
         return jsonify(get_default_layout())
     try:
-        img = Image.open(template.file_path)
-        w, h = img.size
+        path = resolve_upload_path(template.file_path)
+        if path and os.path.exists(path):
+            img = Image.open(path)
+            w, h = img.size
+        else:
+            w, h = 794, 1123
     except Exception:
         w, h = 794, 1123
     return jsonify(normalize_layout(raw, w, h))
@@ -1060,7 +1076,7 @@ def api_certificate_layout_save(certificate_id):
     layout = request.get_json(force=True)
     if not layout or 'fields' not in layout:
         return jsonify({'error': 'Invalid layout'}), 400
-    save_certificate_override(app.config['UPLOAD_FOLDER'], certificate.id, layout)
+    save_certificate_override(resolve_upload_path(app.config['UPLOAD_FOLDER']) or app.config['UPLOAD_FOLDER'], certificate.id, layout)
     return jsonify({'ok': True})
 
 @app.route('/certificate/download/<int:certificate_id>')
@@ -1090,9 +1106,9 @@ def download_certificate(certificate_id):
 def generate_pdf_certificate(certificate):
     """Generate PDF: Pillow composes certificate on template PNG; reportlab wraps to A4 (print-ready)."""
     try:
-        template_path = certificate.template.file_path
-        if not os.path.exists(template_path):
-            raise FileNotFoundError(f"Template file not found: {template_path}")
+        template_path = resolve_upload_path(certificate.template.file_path)
+        if not template_path or not os.path.exists(template_path):
+            raise FileNotFoundError(f"Template file not found: {certificate.template.file_path}")
         if template_path.lower().endswith('.pdf'):
             try:
                 from pdf2image import convert_from_path
@@ -1104,13 +1120,14 @@ def generate_pdf_certificate(certificate):
             template_img = Image.open(template_path)
         w, h = template_img.size
         layout = certificate.template.get_text_positions()
-        override = load_certificate_override(app.config['UPLOAD_FOLDER'], certificate.id)
+        override = load_certificate_override(resolve_upload_path(app.config['UPLOAD_FOLDER']) or app.config['UPLOAD_FOLDER'], certificate.id)
         if override and 'fields' in override:
             layout = override
         layout = normalize_layout(layout, w, h)
         qr_img = None
-        if certificate.qr_code_path and os.path.exists(certificate.qr_code_path):
-            qr_img = Image.open(certificate.qr_code_path)
+        qr_path = resolve_upload_path(certificate.qr_code_path) if certificate.qr_code_path else None
+        if qr_path and os.path.exists(qr_path):
+            qr_img = Image.open(qr_path)
         pil_out = render_certificate_to_pil(
             template_img,
             recipient_name=certificate.recipient_name,
