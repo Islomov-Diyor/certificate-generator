@@ -1285,6 +1285,24 @@ def create_super_admin():
     db.session.commit()
     print("Super admin created successfully")
 
+
+@app.cli.command('reset-password')
+def reset_password():
+    """Reset password for a user by email"""
+    email = input("Enter user email: ")
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        print(f"User with email '{email}' not found.")
+        return
+    password = input("Enter new password: ")
+    if not password:
+        print("Password cannot be empty.")
+        return
+    user.password_hash = generate_password_hash(password)
+    db.session.commit()
+    print(f"Password reset successfully for {email}")
+
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
