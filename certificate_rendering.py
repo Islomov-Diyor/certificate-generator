@@ -102,10 +102,16 @@ def normalize_layout(positions: Optional[Dict], img_width: int, img_height: int)
     """
     Return layout dict in canonical form (version + fields with x_pct, y_pct, anchor, etc.).
     If positions is old-style (flat x,y per field), convert to percent.
+    Ensures qr_code exists with default position if missing.
     """
+    default = get_default_layout()
     if not positions:
-        return get_default_layout()
+        return default
     if positions.get('version') == LAYOUT_VERSION and 'fields' in positions:
+        fields = positions.get('fields', {})
+        if 'qr_code' not in fields:
+            fields = {**fields, 'qr_code': default['fields']['qr_code']}
+            positions = {**positions, 'fields': fields}
         return positions
     # Legacy: { recipient_name: { x, y }, ... }
     return _pixel_layout_from_legacy(positions, img_width, img_height)
@@ -298,6 +304,10 @@ def pil_image_to_a4_pdf_buffer(pil_image: Image.Image, dpi: int = 300):
     from reportlab.pdfgen import canvas
     from reportlab.lib.utils import ImageReader
     import io
+
+    # ReportLab works best with RGB; flatten RGBA to avoid PDF rendering issues
+    if pil_image.mode != 'RGB':
+        pil_image = pil_image.convert('RGB')
 
     # Use A4 landscape so certificates open in album orientation
     a4_w, a4_h = landscape(A4)  # points: ~841.89 x 595.28 (landscape)

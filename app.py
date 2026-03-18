@@ -1064,9 +1064,16 @@ def certificate_preview_image(certificate_id):
         layout = override
     layout = normalize_layout(layout, w, h)
     qr_img = None
-    qr_path = resolve_upload_path(certificate.qr_code_path) if certificate.qr_code_path else None
-    if qr_path and os.path.exists(qr_path):
-        qr_img = Image.open(qr_path)
+    if certificate.qr_code_path:
+        qr_path = resolve_upload_path(certificate.qr_code_path)
+        if not qr_path or not os.path.exists(qr_path):
+            qr_filename = os.path.basename(str(certificate.qr_code_path).replace('\\', '/'))
+            qr_path = os.path.join(app.root_path, app.config['UPLOAD_FOLDER'], 'qrcodes', qr_filename)
+        if qr_path and os.path.exists(qr_path):
+            try:
+                qr_img = Image.open(qr_path)
+            except Exception:
+                pass
     pil_out = render_certificate_to_pil(
         template_img,
         recipient_name=certificate.recipient_name,
@@ -1179,9 +1186,16 @@ def generate_pdf_certificate(certificate):
             layout = override
         layout = normalize_layout(layout, w, h)
         qr_img = None
-        qr_path = resolve_upload_path(certificate.qr_code_path) if certificate.qr_code_path else None
-        if qr_path and os.path.exists(qr_path):
-            qr_img = Image.open(qr_path)
+        if certificate.qr_code_path:
+            qr_path = resolve_upload_path(certificate.qr_code_path)
+            if not qr_path or not os.path.exists(qr_path):
+                qr_filename = os.path.basename(str(certificate.qr_code_path).replace('\\', '/'))
+                qr_path = os.path.join(app.root_path, app.config['UPLOAD_FOLDER'], 'qrcodes', qr_filename)
+            if qr_path and os.path.exists(qr_path):
+                try:
+                    qr_img = Image.open(qr_path)
+                except Exception as e:
+                    app.logger.warning(f'Failed to load QR image {qr_path}: {e}')
         pil_out = render_certificate_to_pil(
             template_img,
             recipient_name=certificate.recipient_name,
