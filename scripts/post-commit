@@ -1,0 +1,3 @@
+#!/bin/sh
+# Har bir commitdan keyin avtomatik GitHub'ga push qiladi
+git push origin HEAD

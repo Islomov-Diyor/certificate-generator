@@ -1078,13 +1078,13 @@ def api_certificate_layout_get(certificate_id):
         return jsonify({'error': 'Forbidden'}), 403
     override = load_certificate_override(resolve_upload_path(app.config['UPLOAD_FOLDER']) or app.config['UPLOAD_FOLDER'], certificate.id)
     if override and 'fields' in override:
-        return jsonify(override)
-    template = certificate.template
-    raw = template.get_text_positions()
-    if not raw:
-        return jsonify(get_default_layout())
+        layout = override
+    else:
+        template = certificate.template
+        raw = template.get_text_positions()
+        layout = get_default_layout() if not raw else None
     try:
-        path = resolve_upload_path(template.file_path)
+        path = resolve_upload_path(certificate.template.file_path)
         if path and os.path.exists(path):
             img = Image.open(path)
             w, h = img.size
@@ -1092,7 +1092,13 @@ def api_certificate_layout_get(certificate_id):
             w, h = 794, 1123
     except Exception:
         w, h = 794, 1123
-    return jsonify(normalize_layout(raw, w, h))
+    if layout is None:
+        layout = normalize_layout(certificate.template.get_text_positions(), w, h)
+    else:
+        layout = normalize_layout(layout, w, h)
+    layout['template_width'] = w
+    layout['template_height'] = h
+    return jsonify(layout)
 
 
 @app.route('/api/certificates/<int:certificate_id>/layout', methods=['POST'])

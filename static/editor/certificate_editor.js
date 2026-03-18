@@ -2,6 +2,10 @@
   const CONFIG = window.EDITOR_CONFIG;
   if (!CONFIG || !CONFIG.imageUrl) return;
 
+  const REFERENCE_HEIGHT = 1123;
+  const FONT_SIZE_LARGE = 48, FONT_SIZE_MEDIUM = 32, FONT_SIZE_SMALL = 24;
+  const FONT_SCALE_MIN = 0.7, FONT_SCALE_MAX = 4.0;
+  const QR_DEFAULT_SIZE_PX = 150;
   const FIELD_KEYS = ['recipient_name', 'specialization', 'course_name', 'teacher_name', 'reg_number', 'date', 'qr_code'];
   const FIELD_LABELS = {
     recipient_name: 'Recipient Name',
@@ -37,6 +41,14 @@
     const maxW = 900;
     scale = Math.min(1, maxW / templateWidth);
     return { w: Math.round(templateWidth * scale), h: Math.round(templateHeight * scale) };
+  }
+
+  function getDisplayFontSize(sizeKey, templateH) {
+    const base = sizeKey === 'large' ? FONT_SIZE_LARGE : (sizeKey === 'small' ? FONT_SIZE_SMALL : FONT_SIZE_MEDIUM);
+    let s = templateH / REFERENCE_HEIGHT;
+    s = Math.max(FONT_SCALE_MIN, Math.min(FONT_SCALE_MAX, s));
+    const px = Math.max(12, Math.min(200, Math.round(base * s)));
+    return Math.round(px * scale);
   }
 
   function pctToStageX(xPct) { return (xPct / 100) * (templateWidth * scale); }
@@ -81,16 +93,20 @@
     group.setAttr('font_size', cfg.font_size);
 
     if (key === 'qr_code') {
-      const size = Math.min(80, stageW * 0.12);
+      const qrScale = Math.max(FONT_SCALE_MIN, Math.min(FONT_SCALE_MAX, templateHeight / REFERENCE_HEIGHT));
+      const qrPx = Math.max(80, Math.min(Math.round(QR_DEFAULT_SIZE_PX * qrScale), templateWidth / 4, templateHeight / 4));
+      const size = Math.round(qrPx * scale);
       const rect = new Konva.Rect({ x: -size/2, y: -size/2, width: size, height: size, fill: '#f0f0f0', stroke: '#333', strokeWidth: 1 });
       const txt = new Konva.Text({ x: -size/2, y: -size/2 - 18, width: size, text: 'QR', fontSize: 10, align: 'center' });
       group.add(rect);
       group.add(txt);
     } else {
       const padding = 8;
-      const fontSize = (cfg.font_size === 'large' ? 20 : (cfg.font_size === 'small' ? 12 : 16));
-      const line = new Konva.Text({ x: -120, y: -12, text: text || '(empty)', fontSize, fontFamily: 'Arial', width: 240, wrap: 'word', align: 'center', listening: false });
-      const boxW = Math.min(260, Math.max(120, line.getWidth() + padding * 2));
+      const fontSize = getDisplayFontSize(cfg.font_size || 'medium', templateHeight);
+      const maxWidthPct = cfg.max_width_pct || 80;
+      const textMaxW = Math.round(stageW * (maxWidthPct / 100));
+      const line = new Konva.Text({ x: -textMaxW/2, y: -12, text: text || '(empty)', fontSize, fontFamily: 'Arial', width: textMaxW, wrap: 'word', align: 'center', listening: false });
+      const boxW = Math.min(textMaxW + padding * 2, Math.max(120, line.getWidth() + padding * 2));
       const boxH = Math.max(28, line.height() + padding);
       const rect = new Konva.Rect({ x: -boxW/2, y: -boxH/2, width: boxW, height: boxH, fill: 'rgba(255,255,255,0.9)', stroke: '#2563eb', strokeWidth: 1.5, cornerRadius: 4 });
       const textNode = new Konva.Text({ x: -boxW/2 + padding, y: -boxH/2 + padding/2, width: boxW - padding*2, text: text || '(empty)', fontSize, fontFamily: 'Arial', wrap: 'word', align: 'center', listening: false });
@@ -176,7 +192,10 @@
         textNode.text(text || '(optional)');
         const rect = g.getAttr('rectNode');
         if (rect) {
-          const w = Math.min(260, Math.max(120, textNode.getWidth() + 20));
+          const maxWidthPct = g.getAttr('max_width_pct') || layout.fields[key]?.max_width_pct || 80;
+          const textMaxW = Math.round(stageW * (maxWidthPct / 100));
+          textNode.width(textMaxW - 16);
+          const w = Math.min(textMaxW + 16, Math.max(120, textNode.getWidth() + 20));
           const h = Math.max(28, textNode.height() + 12);
           rect.width(w).height(h).x(-w/2).y(-h/2);
           textNode.x(-w/2 + 8).y(-h/2 + 4).width(w - 16);
@@ -222,7 +241,7 @@
 
   function saveLayout() {
     updateLayoutFromStage();
-    const payload = JSON.stringify(layout);
+    const payload = JSON.stringify({ version: layout.version || 1, fields: layout.fields });
     fetch(CONFIG.layoutSaveUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
@@ -301,12 +320,18 @@
   fetch(CONFIG.layoutUrl, { credentials: 'same-origin' })
     .then(r => r.json())
     .then(data => {
-      if (data && data.fields) layout = { version: data.version || 1, fields: { ...data.fields } };
+      if (data && data.fields) {
+        layout = { version: data.version || 1, fields: { ...data.fields } };
+      }
+      const serverW = data.template_width;
+      const serverH = data.template_height;
       const img = new Image();
       img.onload = function() {
-        initStage(img.naturalWidth || img.width, img.naturalHeight || img.height);
+        const imgW = serverW || img.naturalWidth || img.width;
+        const imgH = serverH || img.naturalHeight || img.height;
+        initStage(imgW, imgH);
       };
-      img.onerror = function() { initStage(794, 1123); };
+      img.onerror = function() { initStage(serverW || 794, serverH || 1123); };
       img.src = CONFIG.imageUrl;
     })
     .catch(() => {
