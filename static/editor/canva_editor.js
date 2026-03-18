@@ -243,8 +243,25 @@
       const group = new Konva.Group({ x: x, y: y, draggable: true, visible: visible, name: 'field-qr_code' });
       group.setAttr('fieldKey', 'qr_code');
       const rect = new Konva.Rect({ x: -sz / 2, y: -sz / 2, width: sz, height: sz, fill: '#f3f4f6', stroke: '#6b7280', strokeWidth: 1, cornerRadius: 4 });
-      const label = new Konva.Text({ x: -sz / 2, y: -sz / 2, width: sz, height: sz, text: 'QR', fontSize: 11 * zoom, fontFamily: 'Arial', align: 'center', verticalAlign: 'middle', fill: '#6b7280', listening: false });
-      group.add(rect, label);
+      group.add(rect);
+      if (C.qrCodeUrl) {
+        const qrImg = new window.Image();
+        qrImg.crossOrigin = 'anonymous';
+        qrImg.onload = function () {
+          const imgNode = new Konva.Image({ image: qrImg, x: -sz / 2, y: -sz / 2, width: sz, height: sz, listening: false });
+          group.add(imgNode);
+          if (group.getLayer()) group.getLayer().batchDraw();
+        };
+        qrImg.onerror = function () {
+          const label = new Konva.Text({ x: -sz / 2, y: -sz / 2, width: sz, height: sz, text: 'QR', fontSize: 11 * zoom, fontFamily: 'Arial', align: 'center', verticalAlign: 'middle', fill: '#6b7280', listening: false });
+          group.add(label);
+          if (group.getLayer()) group.getLayer().batchDraw();
+        };
+        qrImg.src = C.qrCodeUrl;
+      } else {
+        const label = new Konva.Text({ x: -sz / 2, y: -sz / 2, width: sz, height: sz, text: 'QR', fontSize: 11 * zoom, fontFamily: 'Arial', align: 'center', verticalAlign: 'middle', fill: '#6b7280', listening: false });
+        group.add(label);
+      }
       setupDrag(group);
       return group;
     }

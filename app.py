@@ -188,6 +188,36 @@ def resolve_upload_path(relative_path):
     # Relative path
     return os.path.join(base, path)
 
+
+def load_template_as_image(template_path):
+    """
+    Load template file as PIL Image. Handles PNG, JPG, and PDF (via pdf2image).
+    Returns (PIL.Image, width, height) or (None, 794, 1123) on error.
+    """
+    if not template_path or not os.path.exists(template_path):
+        return None, 794, 1123
+    try:
+        if template_path.lower().endswith('.pdf'):
+            try:
+                from pdf2image import convert_from_path
+                images = convert_from_path(template_path, first_page=1, last_page=1, dpi=150)
+                if images:
+                    img = images[0]
+                    if img.mode != 'RGB':
+                        img = img.convert('RGB')
+                    return img, img.width, img.height
+            except Exception as e:
+                app.logger.warning(f'pdf2image failed for {template_path}: {e}')
+            return None, 794, 1123
+        img = Image.open(template_path)
+        if img.mode not in ('RGB', 'RGBA'):
+            img = img.convert('RGB')
+        return img, img.width, img.height
+    except Exception as e:
+        app.logger.warning(f'Failed to load template {template_path}: {e}')
+        return None, 794, 1123
+
+
 def detect_placeholder_positions(template_path):
     """
     Detect placeholder text positions in template image.
@@ -516,15 +546,8 @@ def api_template_layout_get(template_id):
     if raw.get('version') == 1 and 'fields' in raw:
         return jsonify(raw)
     # Legacy pixel format: normalize using template image size
-    try:
-        path = resolve_upload_path(template.file_path)
-        if path and os.path.exists(path):
-            img = Image.open(path)
-            w, h = img.size
-        else:
-            w, h = 794, 1123
-    except Exception:
-        w, h = 794, 1123
+    path = resolve_upload_path(template.file_path)
+    _, w, h = load_template_as_image(path) if path and os.path.exists(path) else (None, 794, 1123)
     return jsonify(normalize_layout(raw, w, h))
 
 
@@ -544,18 +567,24 @@ def api_template_layout_save(template_id):
 @app.route('/admin/templates/<int:template_id>/image')
 @login_required
 def serve_template(template_id):
-    """Serve template image for preview"""
+    """Serve template image for preview. Converts PDF to PNG so browser can display."""
     template = CertificateTemplate.query.get_or_404(template_id)
     file_path = resolve_upload_path(template.file_path)
-    if file_path and os.path.exists(file_path) and os.path.isfile(file_path):
-        return send_file(file_path)
-    # Fallback: try filename only in uploads/templates (for corrupted DB paths)
-    filename = os.path.basename(template.file_path.replace('\\', '/'))
-    fallback = os.path.join(app.root_path, 'uploads', 'templates', filename)
-    if os.path.exists(fallback) and os.path.isfile(fallback):
-        return send_file(fallback)
-    app.logger.warning(f'Template file not found: {template.file_path} -> {file_path} (root: {app.root_path})')
-    return '', 404
+    if not file_path or not os.path.exists(file_path):
+        filename = os.path.basename(template.file_path.replace('\\', '/'))
+        file_path = os.path.join(app.root_path, 'uploads', 'templates', filename)
+    if not file_path or not os.path.exists(file_path) or not os.path.isfile(file_path):
+        app.logger.warning(f'Template file not found: {template.file_path}')
+        return '', 404
+    if file_path.lower().endswith('.pdf'):
+        img, w, h = load_template_as_image(file_path)
+        if img is None:
+            return '', 404
+        buf = io.BytesIO()
+        img.save(buf, format='PNG')
+        buf.seek(0)
+        return send_file(buf, mimetype='image/png')
+    return send_file(file_path)
 
 
 @app.route('/uploads/qrcodes/<path:filename>')
@@ -1023,13 +1052,11 @@ def certificate_preview_image(certificate_id):
     certificate = GeneratedCertificate.query.get_or_404(certificate_id)
     if current_user.role != 'super_admin' and certificate.admin_id != current_user.id:
         return '', 403
-    try:
-        path = resolve_upload_path(certificate.template.file_path)
-        if not path or not os.path.exists(path):
-            return '', 404
-        template_img = Image.open(path)
-        w, h = template_img.size
-    except Exception:
+    path = resolve_upload_path(certificate.template.file_path)
+    if not path or not os.path.exists(path):
+        return '', 404
+    template_img, w, h = load_template_as_image(path)
+    if template_img is None:
         return '', 404
     layout = certificate.template.get_text_positions()
     override = load_certificate_override(resolve_upload_path(app.config['UPLOAD_FOLDER']) or app.config['UPLOAD_FOLDER'], certificate.id)
@@ -1083,15 +1110,8 @@ def api_certificate_layout_get(certificate_id):
         template = certificate.template
         raw = template.get_text_positions()
         layout = get_default_layout() if not raw else None
-    try:
-        path = resolve_upload_path(certificate.template.file_path)
-        if path and os.path.exists(path):
-            img = Image.open(path)
-            w, h = img.size
-        else:
-            w, h = 794, 1123
-    except Exception:
-        w, h = 794, 1123
+    path = resolve_upload_path(certificate.template.file_path)
+    _, w, h = load_template_as_image(path) if path and os.path.exists(path) else (None, 794, 1123)
     if layout is None:
         layout = normalize_layout(certificate.template.get_text_positions(), w, h)
     else:
