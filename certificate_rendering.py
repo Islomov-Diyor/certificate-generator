@@ -269,6 +269,13 @@ def render_certificate_to_pil(
             y_px = max(0, min(y_px, h - qr_size))
             if qr_img.mode != 'RGBA':
                 qr_img = qr_img.convert('RGBA')
+            # Draw a solid white background behind the QR so it scans on dark templates
+            pad = max(6, int(round(qr_size * 0.12)))
+            bg_left = max(0, x_px - pad)
+            bg_top = max(0, y_px - pad)
+            bg_right = min(w, x_px + qr_size + pad)
+            bg_bottom = min(h, y_px + qr_size + pad)
+            draw.rectangle([(bg_left, bg_top), (bg_right, bg_bottom)], fill=(255, 255, 255, 255))
             out.paste(qr_img, (x_px, y_px), mask=qr_img)
 
     return out
