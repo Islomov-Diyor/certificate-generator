@@ -342,7 +342,7 @@ def detect_placeholders_with_ocr(template_path):
         return None
 
 def generate_qr_code(url, filename):
-    """Generate QR code and save to file"""
+    """Generate QR code and save to file. Returns relative path for DB storage."""
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
     qr.add_data(url)
     qr.make(fit=True)
@@ -358,9 +358,11 @@ def generate_qr_code(url, filename):
         else:
             new_data.append(item)
     img.putdata(new_data)
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], 'qrcodes', filename)
-    img.save(filepath)
-    return filepath
+    rel_path = os.path.join(app.config['UPLOAD_FOLDER'], 'qrcodes', filename)
+    abs_path = os.path.join(app.root_path, rel_path)
+    os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+    img.save(abs_path)
+    return rel_path
 
 # Routes
 @app.route('/')
@@ -1065,15 +1067,19 @@ def certificate_preview_image(certificate_id):
     layout = normalize_layout(layout, w, h)
     qr_img = None
     if certificate.qr_code_path:
-        qr_path = resolve_upload_path(certificate.qr_code_path)
-        if not qr_path or not os.path.exists(qr_path):
-            qr_filename = os.path.basename(str(certificate.qr_code_path).replace('\\', '/'))
-            qr_path = os.path.join(app.root_path, app.config['UPLOAD_FOLDER'], 'qrcodes', qr_filename)
-        if qr_path and os.path.exists(qr_path):
-            try:
-                qr_img = Image.open(qr_path)
-            except Exception:
-                pass
+        qr_filename = os.path.basename(str(certificate.qr_code_path).replace('\\', '/'))
+        candidates = [
+            os.path.join(resolve_upload_path(app.config['UPLOAD_FOLDER']) or '', 'qrcodes', qr_filename),
+            os.path.join(app.root_path, app.config['UPLOAD_FOLDER'], 'qrcodes', qr_filename),
+            resolve_upload_path(certificate.qr_code_path),
+        ]
+        for qr_path in candidates:
+            if qr_path and os.path.exists(qr_path):
+                try:
+                    qr_img = Image.open(qr_path)
+                    break
+                except Exception:
+                    pass
     pil_out = render_certificate_to_pil(
         template_img,
         recipient_name=certificate.recipient_name,
@@ -1187,15 +1193,19 @@ def generate_pdf_certificate(certificate):
         layout = normalize_layout(layout, w, h)
         qr_img = None
         if certificate.qr_code_path:
-            qr_path = resolve_upload_path(certificate.qr_code_path)
-            if not qr_path or not os.path.exists(qr_path):
-                qr_filename = os.path.basename(str(certificate.qr_code_path).replace('\\', '/'))
-                qr_path = os.path.join(app.root_path, app.config['UPLOAD_FOLDER'], 'qrcodes', qr_filename)
-            if qr_path and os.path.exists(qr_path):
-                try:
-                    qr_img = Image.open(qr_path)
-                except Exception as e:
-                    app.logger.warning(f'Failed to load QR image {qr_path}: {e}')
+            qr_filename = os.path.basename(str(certificate.qr_code_path).replace('\\', '/'))
+            candidates = [
+                os.path.join(resolve_upload_path(app.config['UPLOAD_FOLDER']) or '', 'qrcodes', qr_filename),
+                os.path.join(app.root_path, app.config['UPLOAD_FOLDER'], 'qrcodes', qr_filename),
+                resolve_upload_path(certificate.qr_code_path),
+            ]
+            for qr_path in candidates:
+                if qr_path and os.path.exists(qr_path):
+                    try:
+                        qr_img = Image.open(qr_path)
+                        break
+                    except Exception as e:
+                        app.logger.warning(f'Failed to load QR {qr_path}: {e}')
         pil_out = render_certificate_to_pil(
             template_img,
             recipient_name=certificate.recipient_name,

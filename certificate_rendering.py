@@ -255,21 +255,21 @@ def render_certificate_to_pil(
         color = _parse_color(cfg.get('color'), TEXT_COLOR)
         _draw_text_with_anchor(draw, value, x_px, y_px, anchor, font, color, max_width_px)
 
-    if qr_img and 'qr_code' in fields_cfg and fields_cfg['qr_code'].get('visible', True) is not False:
-        cfg = fields_cfg['qr_code']
-        x_pct = cfg.get('x_pct', 88)
-        y_pct = cfg.get('y_pct', 92)
-        qr_scale = max(FONT_SCALE_MIN, min(FONT_SCALE_MAX, h / REFERENCE_HEIGHT))
-        qr_size = max(80, min(int(round(QR_DEFAULT_SIZE_PX * qr_scale)), w // 4, h // 4))
-        qr_img = qr_img.resize((qr_size, qr_size), Image.Resampling.LANCZOS)
-        x_px = int(w * (x_pct / 100.0)) - qr_size // 2
-        y_px = int(h * (y_pct / 100.0)) - qr_size // 2
-        x_px = max(0, min(x_px, w - qr_size))
-        y_px = max(0, min(y_px, h - qr_size))
-        # Preserve alpha channel so QR background can be transparent
-        if qr_img.mode != 'RGBA':
-            qr_img = qr_img.convert('RGBA')
-        out.paste(qr_img, (x_px, y_px), mask=qr_img)
+    if qr_img:
+        cfg = fields_cfg.get('qr_code', {'x_pct': 88, 'y_pct': 92})
+        if cfg.get('visible', True) is not False:
+            x_pct = cfg.get('x_pct', 88)
+            y_pct = cfg.get('y_pct', 92)
+            qr_scale = max(FONT_SCALE_MIN, min(FONT_SCALE_MAX, h / REFERENCE_HEIGHT))
+            qr_size = max(80, min(int(round(QR_DEFAULT_SIZE_PX * qr_scale)), w // 4, h // 4))
+            qr_img = qr_img.resize((qr_size, qr_size), Image.Resampling.LANCZOS)
+            x_px = int(w * (x_pct / 100.0)) - qr_size // 2
+            y_px = int(h * (y_pct / 100.0)) - qr_size // 2
+            x_px = max(0, min(x_px, w - qr_size))
+            y_px = max(0, min(y_px, h - qr_size))
+            if qr_img.mode != 'RGBA':
+                qr_img = qr_img.convert('RGBA')
+            out.paste(qr_img, (x_px, y_px), mask=qr_img)
 
     return out
 
